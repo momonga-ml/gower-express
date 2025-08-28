@@ -164,11 +164,11 @@ def make_gower_knn_classifier(
     """
     try:
         from sklearn.neighbors import KNeighborsClassifier
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "scikit-learn is required for sklearn integration. "
             "Install it with: pip install scikit-learn"
-        )
+        ) from err
 
     # Create Gower distance metric
     metric = GowerDistance(cat_features=cat_features, feature_weights=feature_weights)
@@ -219,11 +219,11 @@ def make_gower_knn_regressor(
     """
     try:
         from sklearn.neighbors import KNeighborsRegressor
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "scikit-learn is required for sklearn integration. "
             "Install it with: pip install scikit-learn"
-        )
+        ) from err
 
     # Create Gower distance metric
     metric = GowerDistance(cat_features=cat_features, feature_weights=feature_weights)

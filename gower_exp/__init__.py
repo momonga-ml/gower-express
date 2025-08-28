@@ -7,22 +7,24 @@ __all__ = ["gower_matrix", "gower_topn"]
 # Optional sklearn compatibility functions (requires scikit-learn)
 try:
     from .sklearn_compat import (
-        GowerDistance,
-        gower_distance,
-        make_gower_knn_classifier,
-        make_gower_knn_regressor,
-        precomputed_gower_matrix
+        GowerDistance,  # noqa: F401
+        gower_distance,  # noqa: F401
+        make_gower_knn_classifier,  # noqa: F401
+        make_gower_knn_regressor,  # noqa: F401
+        precomputed_gower_matrix,  # noqa: F401
     )
-    
+
     # Add sklearn functions to __all__ if successfully imported
-    __all__.extend([
-        "GowerDistance",
-        "gower_distance", 
-        "make_gower_knn_classifier",
-        "make_gower_knn_regressor",
-        "precomputed_gower_matrix"
-    ])
-    
+    __all__.extend(
+        [
+            "GowerDistance",
+            "gower_distance",
+            "make_gower_knn_classifier",
+            "make_gower_knn_regressor",
+            "precomputed_gower_matrix",
+        ]
+    )
+
 except ImportError:
     # sklearn not available, sklearn compatibility functions not exported
     pass
