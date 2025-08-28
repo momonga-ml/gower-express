@@ -296,11 +296,11 @@ class TestCoverageBoost:
         )
         assert len(result["index"]) == 1
 
-        # Test with empty heap initialization
+        # Test with empty categorical features but valid data
         result = gd._gower_topn_heap(
             np.array([]),
             np.array([1.0]),
-            np.array([[], []]).T,
+            np.array([[], []]),  # Shape (2, 0) - 2 rows, 0 categorical features
             np.array([[2.0], [3.0]]),
             np.array([]),
             np.array([1.0]),

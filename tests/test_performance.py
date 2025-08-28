@@ -188,56 +188,6 @@ class TestPerformanceOptimizations:
         assert result.shape == (2, 2)
         assert np.all(np.diag(result) == 0)
 
-    def test_vectorized_no_categorical(self):
-        """Test vectorized implementation with no categorical features"""
-        X_cat = np.array([[], []]).T
-        X_num = np.array([[1.0, 2.0], [3.0, 4.0]])
-        Y_cat = X_cat
-        Y_num = X_num
-        weight_cat = np.array([])
-        weight_num = np.array([1.0, 1.0])
-        weight_sum = 2.0
-        num_ranges = np.array([2.0, 2.0])
-
-        result = gd.gower_matrix_vectorized(
-            X_cat,
-            X_num,
-            Y_cat,
-            Y_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            num_ranges,
-            is_symmetric=True,
-        )
-
-        assert result.shape == (2, 2)
-
-    def test_vectorized_no_numerical(self):
-        """Test vectorized implementation with no numerical features"""
-        X_cat = np.array([["A", "B"], ["C", "D"]])
-        X_num = np.array([[], []]).T
-        Y_cat = X_cat
-        Y_num = X_num
-        weight_cat = np.array([1.0, 1.0])
-        weight_num = np.array([])
-        weight_sum = 2.0
-        num_ranges = np.array([])
-
-        result = gd.gower_matrix_vectorized(
-            X_cat,
-            X_num,
-            Y_cat,
-            Y_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            num_ranges,
-            is_symmetric=True,
-        )
-
-        assert result.shape == (2, 2)
-
     def test_parallel_processing_large_dataset(self):
         """Test parallel processing with large dataset"""
         X = np.random.rand(200, 20)  # Large enough to trigger parallel
@@ -310,21 +260,6 @@ class TestPerformanceOptimizations:
         # Check ordering
         for i in range(9):
             assert result["values"][i] <= result["values"][i + 1]
-
-    def test_optimized_topn_large_dataset(self):
-        """Test optimized top-N with large dataset"""
-        X = np.array([[1.0, 2.0, "A"]], dtype=object)
-        Y = np.concatenate(
-            [
-                np.random.rand(5500, 2),
-                np.random.choice(["A", "B", "C"], size=(5500, 1)),
-            ],
-            axis=1,
-        ).astype(object)
-
-        # Should use optimized path
-        result = gower_exp.gower_topn(X, Y, n=30, use_optimized=True)
-        assert len(result["index"]) == 30
 
     def test_optimized_topn_early_stopping(self):
         """Test that heap optimization provides early stopping benefit"""

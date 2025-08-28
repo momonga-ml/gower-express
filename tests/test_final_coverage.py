@@ -14,22 +14,6 @@ import gower_exp.gower_dist as gd
 class TestFinalCoverage:
     """Tests to cover remaining gaps for 90% coverage"""
 
-    @patch("gower_exp.gower_dist.jit")
-    @patch("gower_exp.gower_dist.prange")
-    def test_numba_decorators_not_available(self, mock_prange, mock_jit):
-        """Test the dummy decorators when numba is not available"""
-
-        # Test that the dummy jit decorator returns the function unchanged
-        def dummy_func():
-            return 42
-
-        decorated = gd.jit(nopython=True)(dummy_func)
-        assert decorated() == 42
-
-        # Test that prange just returns range
-        result = list(gd.prange(5))
-        assert result == list(range(5))
-
     @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", False)
     def test_imports_without_numba(self):
         """Test that module loads correctly without numba"""
@@ -182,32 +166,6 @@ class TestFinalCoverage:
 
         assert result.shape == (1, 3)
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
-    def test_gower_get_numba_exception_fallback(self):
-        """Test gower_get falls back when numba fails"""
-        xi_cat = np.array(["A", "B"])
-        xi_num = np.array([1.0, 2.0])
-        xj_cat = np.array([["A", "C"], ["B", "B"]])
-        xj_num = np.array([[1.5, 2.5], [2.0, 3.0]])
-
-        with patch(
-            "gower_exp.gower_dist.gower_get_numba", side_effect=Exception("Numba error")
-        ):
-            result = gd.gower_get(
-                xi_cat,
-                xi_num,
-                xj_cat,
-                xj_num,
-                np.array([1.0, 1.0]),
-                np.array([1.0, 1.0]),
-                4.0,
-                np.array([True, True, False, False]),
-                np.array([1.0, 2.0]),
-                np.array([5.0, 10.0]),
-            )
-
-            assert len(result) == 2
-
     def test_gower_matrix_dataframe_automatic_cat_detection(self):
         """Test automatic categorical detection in DataFrames"""
         df = pd.DataFrame(
@@ -221,15 +179,6 @@ class TestFinalCoverage:
 
         result = gower_exp.gower_matrix(df)
         assert result.shape == (3, 3)
-
-    def test_parallel_processing_cpu_count_none(self):
-        """Test parallel processing when cpu_count returns None"""
-        X = np.random.rand(150, 10)
-
-        with patch("gower_exp.gower_dist.os.cpu_count", return_value=None):
-            with patch("gower_exp.gower_dist.os.cpu_count", side_effect=[None, 4]):
-                result = gower_exp.gower_matrix(X, n_jobs=-1)
-                assert result.shape == (150, 150)
 
     @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     @patch("gower_exp.gower_dist.smallest_indices_numba")

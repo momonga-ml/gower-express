@@ -193,7 +193,15 @@ def gower_matrix(
 
     if cat_features is None:
         if not isinstance(X, np.ndarray):
-            is_number = np.vectorize(lambda x: not np.issubdtype(x, np.number))
+
+            def is_number_safe(dtype):
+                try:
+                    return not np.issubdtype(dtype, np.number)
+                except TypeError:
+                    # Handle pandas dtypes (like CategoricalDtype) that np.issubdtype can't process
+                    return True  # Treat as categorical if we can't determine
+
+            is_number = np.vectorize(is_number_safe)
             cat_features = is_number(X.dtypes)
         else:
             cat_features = np.zeros(x_n_cols, dtype=bool)
@@ -254,6 +262,8 @@ def gower_matrix(
             num_ranges[col] = np.abs(1 - min_val / max_val) if (max_val != 0) else 0.0
 
     # This is to normalize the numeric values between 0 and 1.
+    # Ensure Z_num is float to handle division properly
+    Z_num = Z_num.astype(np.float64)
     Z_num = np.divide(Z_num, num_max, out=np.zeros_like(Z_num), where=num_max != 0)
     Z_cat = Z[:, cat_features]
 
@@ -426,6 +436,10 @@ def _compute_gower_matrix_parallel(
         for i in range(x_n_rows):
             for j in range(i):
                 out[i, j] = out[j, i]
+
+    # For symmetric matrices, ensure diagonal is exactly 0
+    if x_n_rows == y_n_rows:
+        np.fill_diagonal(out, 0.0)
 
     return out
 
@@ -685,7 +699,8 @@ def gower_get(
     max_of_numeric,
 ):
     # Use numba-optimized version if available and arrays are compatible
-    if NUMBA_AVAILABLE and xi_cat.ndim == 1 and xj_cat.ndim == 2:
+    # Don't use numba for empty categorical arrays as it doesn't handle them properly
+    if NUMBA_AVAILABLE and xi_cat.ndim == 1 and xj_cat.ndim == 2 and len(xi_cat) > 0:
         try:
             return gower_get_numba(
                 xi_cat,
@@ -703,11 +718,43 @@ def gower_get(
 
     # Original numpy implementation as fallback
     # categorical columns
-    sij_cat = np.where(xi_cat == xj_cat, np.zeros_like(xi_cat), np.ones_like(xi_cat))
-    sum_cat = np.multiply(feature_weight_cat, sij_cat).sum(axis=1)
+    if len(xi_cat) > 0:
+        # Handle categorical comparison including NaN values
+        # For string/object arrays, NaN comparisons work differently
+        equal_mask = xi_cat == xj_cat
+
+        # Handle cases where both are NaN (np.nan == np.nan is False, but both being NaN should be equal)
+        # Use a try-catch approach since xi_cat might contain mixed types
+        try:
+            both_nan_mask = np.isnan(xi_cat.astype(float)) & np.isnan(
+                xj_cat.astype(float)
+            )
+        except (ValueError, TypeError):
+            # If can't convert to float, assume no NaN values in categorical data
+            both_nan_mask = np.zeros_like(equal_mask, dtype=bool)
+        final_equal_mask = equal_mask | both_nan_mask
+
+        # Ensure sij_cat is numeric by using explicit float arrays
+        sij_cat = np.where(
+            final_equal_mask,
+            np.zeros(xi_cat.shape, dtype=np.float64),
+            np.ones(xi_cat.shape, dtype=np.float64),
+        )
+        sum_cat = np.multiply(feature_weight_cat, sij_cat).sum(axis=1)
+    else:
+        # Handle empty categorical arrays - return zeros with correct shape
+        # When xi_cat is empty, the output should match the number of samples in xj
+        # Use xj_num to determine the number of samples since it's the main data
+        output_shape = xj_num.shape[0] if xj_num.ndim > 1 else 1
+        sum_cat = np.zeros(output_shape, dtype=np.float64)
 
     # numerical columns
     abs_delta = np.absolute(xi_num - xj_num)
+
+    # Handle NaN values properly: when both values are NaN, distance should be 0
+    both_nan = np.isnan(xi_num) & np.isnan(xj_num)
+    abs_delta = np.where(both_nan, 0.0, abs_delta)
+
     sij_num = np.divide(
         abs_delta,
         ranges_of_numeric,

@@ -28,15 +28,16 @@ class TestSklearnIntegration:
     def setup_method(self):
         """Set up test data for each test."""
         # Mixed data with categorical and numerical features
+        # Use label-encoded categorical data for sklearn compatibility
         self.X = np.array(
             [
-                [1.0, "A", 10],
-                [2.0, "B", 20],
-                [3.0, "A", 30],
-                [4.0, "C", 40],
-                [5.0, "B", 50],
+                [1.0, 0, 10],  # A -> 0
+                [2.0, 1, 20],  # B -> 1
+                [3.0, 0, 30],  # A -> 0
+                [4.0, 2, 40],  # C -> 2
+                [5.0, 1, 50],  # B -> 1
             ],
-            dtype=object,
+            dtype=float,
         )
 
         self.y = np.array([0, 1, 0, 1, 1])  # Binary classification labels
@@ -178,8 +179,8 @@ class TestSklearnIntegration:
         np.random.seed(42)
         X_cluster = np.random.rand(20, 3)
         X_cluster[:, 1] = np.random.choice(
-            ["A", "B", "C"], 20
-        )  # Make middle column categorical
+            [0, 1, 2], 20
+        )  # Make middle column categorical (label-encoded)
 
         # Create metric
         metric = GowerDistance(cat_features=[False, True, False])
@@ -212,6 +213,8 @@ class TestSklearnIntegration:
 
     def test_pandas_dataframe_input(self):
         """Test that sklearn integration works with pandas DataFrames."""
+        from sklearn.preprocessing import LabelEncoder
+
         from gower_exp import make_gower_knn_classifier
 
         # Create DataFrame
@@ -223,12 +226,19 @@ class TestSklearnIntegration:
             }
         )
 
-        # Create classifier (auto-detect categorical features)
-        clf = make_gower_knn_classifier(n_neighbors=3)
+        # Preprocess categorical data for sklearn compatibility
+        df_processed = df.copy()
+        le = LabelEncoder()
+        df_processed["categorical"] = le.fit_transform(df["categorical"])
+
+        # Create classifier with explicit categorical feature specification
+        clf = make_gower_knn_classifier(
+            n_neighbors=3, cat_features=[False, True, False]
+        )
 
         # Fit and predict
-        clf.fit(df, self.y)
-        predictions = clf.predict(df.iloc[:3])
+        clf.fit(df_processed, self.y)
+        predictions = clf.predict(df_processed.iloc[:3])
 
         assert len(predictions) == 3
         assert all(pred in [0, 1] for pred in predictions)

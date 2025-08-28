@@ -14,14 +14,14 @@ class TestHelperFunctions:
         module = gd.get_array_module(use_gpu=False)
         assert module is np
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp")
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp")
     def test_get_array_module_gpu(self, mock_cp):
         """Test get_array_module returns cupy for GPU when available"""
         module = gd.get_array_module(use_gpu=True)
         assert module is mock_cp
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", False)
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", False)
     def test_get_array_module_gpu_not_available(self):
         """Test get_array_module falls back to numpy when GPU not available"""
         module = gd.get_array_module(use_gpu=True)
@@ -340,7 +340,7 @@ class TestHelperFunctions:
         assert result.shape == (4, 4)
         assert np.all(np.diag(result) == 0) or np.allclose(np.diag(result), 0)
 
-    @patch("gower.gower_dist.os.cpu_count", return_value=4)
+    @patch("gower_exp.gower_dist.os.cpu_count", return_value=4)
     def test_compute_gower_matrix_parallel_all_cores(self, mock_cpu_count):
         """Test parallel processing with n_jobs=-1"""
         X_cat = np.array([["A"], ["B"]])

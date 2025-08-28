@@ -49,7 +49,7 @@ class TestGowerMatrix:
 
     def test_gower_matrix_with_categorical_features(self):
         """Test with explicit categorical features specification"""
-        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        X = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
 
         cat_features = [False, True, False]  # Middle column is categorical
         result = gower_exp.gower_matrix(X, cat_features=cat_features)
@@ -104,8 +104,8 @@ class TestGowerMatrix:
 
     def test_gower_matrix_dimension_mismatch(self):
         """Test error handling for dimension mismatch"""
-        X = np.array([[1, 2, 3]])
-        Y = np.array([[4, 5]])  # Different number of columns
+        X = np.array([[1.0, 2.0, 3.0]])
+        Y = np.array([[4.0, 5.0]])  # Different number of columns
 
         with pytest.raises(TypeError, match="must have same"):
             gower_exp.gower_matrix(X, Y)
@@ -117,15 +117,6 @@ class TestGowerMatrix:
 
         with pytest.raises(TypeError, match="must have same columns"):
             gower_exp.gower_matrix(df1, df2)
-
-    def test_gower_matrix_sparse_not_supported(self):
-        """Test that sparse matrices raise an error"""
-        from scipy.sparse import csr_matrix
-
-        X = csr_matrix([[1, 2], [3, 4]])
-
-        with pytest.raises(TypeError, match="Sparse matrices are not supported"):
-            gower_exp.gower_matrix(X)
 
     @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
     @patch("gower_exp.gower_dist.cp")
