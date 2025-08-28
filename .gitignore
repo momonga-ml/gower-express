@@ -9,3 +9,13 @@ dist/
 .idea/
 build/
 *.ipynb
+
+
+CLAUDE.md
+.claude
+
+.coverage
+.coverage.*
+htmlcov
+tests/__pycache__/
+
