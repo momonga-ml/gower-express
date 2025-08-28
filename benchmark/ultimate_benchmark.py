@@ -11,9 +11,9 @@ import sys
 import os
 
 # Add the gower package to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import gower
+import gower_exp
 
 
 def create_worst_case_dataset(n_samples=10000, n_features=8, query_outlier=True):
@@ -70,7 +70,7 @@ def original_gower_topn(data_x, data_y=None, weight=None, cat_features=None, n=5
         raise TypeError("Only support `data_x` of 1 row.")
     
     # Compute full distance matrix - this is the bottleneck!
-    dm = gower.gower_matrix(data_x, data_y, weight, cat_features)
+    dm = gower_exp.gower_matrix(data_x, data_y, weight, cat_features)
     
     # Find smallest distances
     flat = np.nan_to_num(dm[0], nan=999)
@@ -123,7 +123,7 @@ def extreme_performance_test():
         print("Testing optimized implementation...")
         try:
             start_time = time.perf_counter()
-            opt_result = gower.gower_topn(query, data, n=n)
+            opt_result = gower_exp.gower_topn(query, data, n=n)
             opt_time = time.perf_counter() - start_time
             print(f"  Optimized: {opt_time:.4f}s")
         except Exception as e:

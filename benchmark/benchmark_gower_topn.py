@@ -11,9 +11,9 @@ import sys
 import os
 
 # Add the gower package to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import gower
+import gower_exp
 
 
 def create_test_data(n_samples=1000, n_features=6, mixed_types=True):
@@ -56,7 +56,7 @@ def original_gower_topn(data_x, data_y=None, weight=None, cat_features=None, n=5
         raise TypeError("Only support `data_x` of 1 row.")
     
     # Compute full distance matrix
-    dm = gower.gower_matrix(data_x, data_y, weight, cat_features)
+    dm = gower_exp.gower_matrix(data_x, data_y, weight, cat_features)
     
     # Use the smallest_indices function
     return smallest_indices(np.nan_to_num(dm[0], nan=1), n)
@@ -115,7 +115,7 @@ def run_comprehensive_benchmark():
         # Benchmark optimized implementation  
         print("Benchmarking Optimized Implementation...")
         optimized_results = benchmark_implementation(
-            "Optimized", gower.gower_topn, query, data, n_values, num_runs=3
+            "Optimized", gower_exp.gower_topn, query, data, n_values, num_runs=3
         )
         
         # Compare results
@@ -136,7 +136,7 @@ def run_comprehensive_benchmark():
                 # Quick accuracy check (compare first result)
                 try:
                     orig_result = original_gower_topn(query, data, n=n)
-                    opt_result = gower.gower_topn(query, data, n=n)
+                    opt_result = gower_exp.gower_topn(query, data, n=n)
                     
                     # Check if top result is the same (allowing for minor floating point differences)
                     accuracy = "OK" if len(orig_result['index']) > 0 and len(opt_result['index']) > 0 and \
@@ -173,7 +173,7 @@ def detailed_correctness_test():
         try:
             # Get results from both implementations
             original_result = original_gower_topn(query, data, n=n)
-            optimized_result = gower.gower_topn(query, data, n=n)
+            optimized_result = gower_exp.gower_topn(query, data, n=n)
             
             # Compare indices (may be in different order for ties)
             orig_indices = set(original_result['index'])

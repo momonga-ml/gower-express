@@ -4,8 +4,8 @@ from unittest.mock import patch
 import numpy as np
 
 # Import the module to test internal functions
-sys.path.insert(0, "../gower")
-import gower.gower_dist as gd
+sys.path.insert(0, "../gower_exp")
+import gower_exp.gower_dist as gd
 
 
 class TestHelperFunctions:

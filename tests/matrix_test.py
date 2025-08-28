@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import gower
+import gower_exp
 
 
 def test_answer():
@@ -38,5 +38,5 @@ def test_answer():
     )
     Xd.iloc[1:3, :]
     X = np.asarray(Xd)
-    aaa = gower.gower_matrix(X)
+    aaa = gower_exp.gower_matrix(X)
     assert aaa[0][1] == pytest.approx(0.3590238, 0.001)

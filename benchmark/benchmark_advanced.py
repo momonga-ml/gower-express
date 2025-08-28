@@ -14,7 +14,7 @@ import os
 # Add the gower package to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
 
-import gower
+import gower_exp
 
 
 def create_test_dataset(n_samples=10000, n_features=10):
@@ -58,12 +58,12 @@ def benchmark_topn_incremental():
                 
             # Benchmark original (full matrix computation)
             start_time = time.perf_counter()
-            result_orig = gower.gower_topn(query, data, n=n, use_optimized=False)
+            result_orig = gower_exp.gower_topn(query, data, n=n, use_optimized=False)
             time_orig = time.perf_counter() - start_time
             
             # Benchmark optimized (incremental computation)
             start_time = time.perf_counter()
-            result_opt = gower.gower_topn(query, data, n=n, use_optimized=True)
+            result_opt = gower_exp.gower_topn(query, data, n=n, use_optimized=True)
             time_opt = time.perf_counter() - start_time
             
             # Calculate speedup
@@ -87,7 +87,7 @@ def benchmark_gpu_acceleration():
     print("="*60)
     
     # Check if GPU is available
-    from gower.gower_dist import GPU_AVAILABLE
+    from gower_exp.gower_dist import GPU_AVAILABLE
     
     if not GPU_AVAILABLE:
         print("GPU not available - skipping GPU benchmarks")
@@ -105,12 +105,12 @@ def benchmark_gpu_acceleration():
         
         # Benchmark CPU
         start_time = time.perf_counter()
-        dm_cpu = gower.gower_matrix(data, use_gpu=False)
+        dm_cpu = gower_exp.gower_matrix(data, use_gpu=False)
         time_cpu = time.perf_counter() - start_time
         
         # Benchmark GPU
         start_time = time.perf_counter()
-        dm_gpu = gower.gower_matrix(data, use_gpu=True)
+        dm_gpu = gower_exp.gower_matrix(data, use_gpu=True)
         time_gpu = time.perf_counter() - start_time
         
         # Calculate speedup
@@ -139,13 +139,13 @@ def benchmark_combined():
     
     # Original: Full matrix computation
     start_time = time.perf_counter()
-    result_orig = gower.gower_topn(query, data, n=10, use_optimized=False)
+    result_orig = gower_exp.gower_topn(query, data, n=10, use_optimized=False)
     time_orig = time.perf_counter() - start_time
     print(f"  Original (full matrix):     {time_orig:6.4f}s")
     
     # Optimized: Incremental computation
     start_time = time.perf_counter()
-    result_opt = gower.gower_topn(query, data, n=10, use_optimized=True)
+    result_opt = gower_exp.gower_topn(query, data, n=10, use_optimized=True)
     time_opt = time.perf_counter() - start_time
     print(f"  Optimized (incremental):    {time_opt:6.4f}s")
     

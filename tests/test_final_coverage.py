@@ -6,16 +6,16 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "../gower")
-import gower
-import gower.gower_dist as gd
+sys.path.insert(0, "../gower_exp")
+import gower_exp
+import gower_exp.gower_dist as gd
 
 
 class TestFinalCoverage:
     """Tests to cover remaining gaps for 90% coverage"""
 
-    @patch("gower.gower_dist.jit")
-    @patch("gower.gower_dist.prange")
+    @patch("gower_exp.gower_dist.jit")
+    @patch("gower_exp.gower_dist.prange")
     def test_numba_decorators_not_available(self, mock_prange, mock_jit):
         """Test the dummy decorators when numba is not available"""
 
@@ -30,7 +30,7 @@ class TestFinalCoverage:
         result = list(gd.prange(5))
         assert result == list(range(5))
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", False)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", False)
     def test_imports_without_numba(self):
         """Test that module loads correctly without numba"""
         # Reimport module without numba
@@ -45,13 +45,12 @@ class TestFinalCoverage:
     def test_gpu_available_check_without_cupy(self):
         """Test GPU availability check when CuPy is not installed"""
         with patch.dict("sys.modules", {"cupy": None}):
-
             # This would trigger the ImportError path
             # but we can't easily reload the module here
             pass
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp")
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp")
     def test_get_array_module_with_mock_cupy(self, mock_cp):
         """Test get_array_module returns mock cupy"""
         mock_cp.cuda.is_available.return_value = True
@@ -66,11 +65,11 @@ class TestFinalCoverage:
         """Test NaN handling in range computation"""
         X = np.array([[np.nan, 1.0], [2.0, np.nan], [3.0, 3.0]])
 
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
         assert not np.all(np.isnan(result))
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     def test_gower_get_numba_optimization_path(self):
         """Test that gower_get uses numba when available and compatible"""
         # Create proper 1D and 2D arrays to trigger numba path
@@ -79,7 +78,7 @@ class TestFinalCoverage:
         xj_cat = np.array([["A", "C"], ["B", "B"]])  # 2D array
         xj_num = np.array([[1.5, 2.5], [2.0, 3.0]])  # 2D array
 
-        with patch("gower.gower_dist.gower_get_numba") as mock_numba:
+        with patch("gower_exp.gower_dist.gower_get_numba") as mock_numba:
             mock_numba.return_value = np.array([0.5, 0.6])
 
             gd.gower_get(
@@ -101,7 +100,7 @@ class TestFinalCoverage:
         """Test range computation when all values in column are the same"""
         X = np.array([[1.0, 5.0], [2.0, 5.0], [3.0, 5.0]])
 
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
         assert not np.any(np.isnan(result))
 
@@ -109,15 +108,15 @@ class TestFinalCoverage:
         """Test range computation when max is zero"""
         X = np.array([[0.0, 1.0], [0.0, 2.0], [0.0, 3.0]])
 
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
 
     def test_parallel_with_exactly_one_chunk(self):
         """Test parallel processing when data fits in one chunk"""
         X = np.random.rand(2, 5)  # Very small dataset
 
-        with patch("gower.gower_dist.os.cpu_count", return_value=4):
-            result = gower.gower_matrix(X, n_jobs=4)
+        with patch("gower_exp.gower_dist.os.cpu_count", return_value=4):
+            result = gower_exp.gower_matrix(X, n_jobs=4)
             assert result.shape == (2, 2)
 
     def test_smallest_indices_with_all_nan(self):
@@ -132,7 +131,7 @@ class TestFinalCoverage:
         X = np.array([[1.0, 2.0]])
         Y = np.random.rand(5000, 2)  # Exactly at boundary
 
-        result = gower.gower_topn(X, Y, n=50, use_optimized=True)  # Exactly at n=50
+        result = gower_exp.gower_topn(X, Y, n=50, use_optimized=True)  # Exactly at n=50
         assert len(result["index"]) == 50
 
     def test_gower_topn_heap_with_n_equal_total(self):
@@ -183,7 +182,7 @@ class TestFinalCoverage:
 
         assert result.shape == (1, 3)
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     def test_gower_get_numba_exception_fallback(self):
         """Test gower_get falls back when numba fails"""
         xi_cat = np.array(["A", "B"])
@@ -192,7 +191,7 @@ class TestFinalCoverage:
         xj_num = np.array([[1.5, 2.5], [2.0, 3.0]])
 
         with patch(
-            "gower.gower_dist.gower_get_numba", side_effect=Exception("Numba error")
+            "gower_exp.gower_dist.gower_get_numba", side_effect=Exception("Numba error")
         ):
             result = gd.gower_get(
                 xi_cat,
@@ -220,20 +219,20 @@ class TestFinalCoverage:
             }
         )
 
-        result = gower.gower_matrix(df)
+        result = gower_exp.gower_matrix(df)
         assert result.shape == (3, 3)
 
     def test_parallel_processing_cpu_count_none(self):
         """Test parallel processing when cpu_count returns None"""
         X = np.random.rand(150, 10)
 
-        with patch("gower.gower_dist.os.cpu_count", return_value=None):
-            with patch("gower.gower_dist.os.cpu_count", side_effect=[None, 4]):
-                result = gower.gower_matrix(X, n_jobs=-1)
+        with patch("gower_exp.gower_dist.os.cpu_count", return_value=None):
+            with patch("gower_exp.gower_dist.os.cpu_count", side_effect=[None, 4]):
+                result = gower_exp.gower_matrix(X, n_jobs=-1)
                 assert result.shape == (150, 150)
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
-    @patch("gower.gower_dist.smallest_indices_numba")
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.smallest_indices_numba")
     def test_smallest_indices_numba_exception(self, mock_numba):
         """Test smallest_indices fallback when numba raises exception"""
         mock_numba.side_effect = Exception("Numba error")
@@ -246,7 +245,7 @@ class TestFinalCoverage:
         """Test optimized topn when data_y is None"""
         X = np.array([[1.0, 2.0]])
 
-        result = gower.gower_topn(X, data_y=None, n=1, use_optimized=True)
+        result = gower_exp.gower_topn(X, data_y=None, n=1, use_optimized=True)
         assert len(result["index"]) == 1
 
     def test_gower_topn_non_optimized_explicitly(self):
@@ -254,14 +253,14 @@ class TestFinalCoverage:
         X = np.array([[1.0, 2.0]])
         Y = np.random.rand(10, 2)
 
-        result = gower.gower_topn(X, Y, n=3, use_optimized=False)
+        result = gower_exp.gower_topn(X, Y, n=3, use_optimized=False)
         assert len(result["index"]) == 3
 
     def test_matrix_with_single_feature(self):
         """Test matrix computation with single feature"""
         X = np.array([[1.0], [2.0], [3.0]])
 
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
 
     def test_gower_topn_heap_n_greater_than_total(self):

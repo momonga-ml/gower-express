@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 📦 **Package Renamed**: Package renamed from `gower` to `gower_exp` (Gower Express) for PyPI distribution
+  - Main package directory renamed from `gower/` to `gower_exp/`
+  - All import statements updated: `import gower` → `import gower_exp`
+  - PyPI package name updated for cleaner branding
+
 ### Added
 - 🚀 **GPU Acceleration**: CuPy support for massive performance gains on CUDA-enabled GPUs
 - ⚡ **Performance Optimizations**: Numba JIT compilation for faster CPU computations

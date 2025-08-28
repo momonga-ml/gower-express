@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "../gower")
-import gower
-import gower.gower_dist as gd
+sys.path.insert(0, "../gower_exp")
+import gower_exp
+import gower_exp.gower_dist as gd
 
 
 class TestCoverageBoost:
@@ -56,7 +56,7 @@ class TestCoverageBoost:
         # This would be tested at module import time
         # We can't easily reload the module, but we can test the pattern
         try:
-            import numba
+            import numba  # noqa: F401
         except ImportError:
             NUMBA_AVAILABLE = False
 
@@ -88,8 +88,8 @@ class TestCoverageBoost:
             GPU_AVAILABLE = False  # Would be False if no cuda attribute
             assert GPU_AVAILABLE is False
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp")
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp")
     def test_gpu_exception_during_matrix_computation(self, mock_cp):
         """Test GPU exception handling in matrix computation"""
         # Setup mock to fail during computation
@@ -105,14 +105,14 @@ class TestCoverageBoost:
         # Should fall back to CPU
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            result = gower.gower_matrix(X, use_gpu=True)
+            result = gower_exp.gower_matrix(X, use_gpu=True)
             assert result.shape == (1, 1)
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     def test_numba_functions_directly(self):
         """Test calling numba functions directly when available"""
         # Test gower_get_numba signature (even if it fails)
-        with patch("gower.gower_dist.gower_get_numba") as mock_func:
+        with patch("gower_exp.gower_dist.gower_get_numba") as mock_func:
             mock_func.return_value = np.array([0.5])
 
             # Call with proper arguments
@@ -128,10 +128,10 @@ class TestCoverageBoost:
             )
             assert len(result) == 1
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     def test_compute_ranges_numba_directly(self):
         """Test compute_ranges_numba function"""
-        with patch("gower.gower_dist.compute_ranges_numba") as mock_func:
+        with patch("gower_exp.gower_dist.compute_ranges_numba") as mock_func:
             Z_num = np.array([[1.0, 2.0], [3.0, 4.0]])
             num_ranges = np.zeros(2)
             num_max = np.zeros(2)
@@ -139,10 +139,10 @@ class TestCoverageBoost:
             mock_func(Z_num, num_ranges, num_max)
             assert mock_func.called
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
     def test_smallest_indices_numba_directly(self):
         """Test smallest_indices_numba function"""
-        with patch("gower.gower_dist.smallest_indices_numba") as mock_func:
+        with patch("gower_exp.gower_dist.smallest_indices_numba") as mock_func:
             mock_func.return_value = (np.array([1, 0]), np.array([0.1, 0.2]))
 
             flat_array = np.array([0.2, 0.1, 0.5])
@@ -222,8 +222,8 @@ class TestCoverageBoost:
         )
         assert result.shape == (2, 2)
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp")
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp")
     def test_vectorized_gpu_directly(self, mock_cp):
         """Test GPU vectorized function directly"""
         # Setup mock CuPy
@@ -274,9 +274,9 @@ class TestCoverageBoost:
 
     def test_parallel_chunk_boundary_conditions(self):
         """Test parallel processing chunk boundaries"""
-        with patch("gower.gower_dist.os.cpu_count", return_value=3):
+        with patch("gower_exp.gower_dist.os.cpu_count", return_value=3):
             X = np.random.rand(7, 5)  # 7 rows, 3 workers = uneven chunks
-            result = gower.gower_matrix(X, n_jobs=-1)
+            result = gower_exp.gower_matrix(X, n_jobs=-1)
             assert result.shape == (7, 7)
 
     def test_heap_algorithm_edge_cases(self):
@@ -344,12 +344,12 @@ class TestCoverageBoost:
         X = np.random.rand(3, 5)
         Y = np.random.rand(4, 5)  # Different number of rows
 
-        result = gower.gower_matrix(X, Y)
+        result = gower_exp.gower_matrix(X, Y)
         assert result.shape == (3, 4)
 
     def test_parallel_single_chunk(self):
         """Test parallel with data that fits in single chunk"""
-        with patch("gower.gower_dist.os.cpu_count", return_value=10):
+        with patch("gower_exp.gower_dist.os.cpu_count", return_value=10):
             X = np.random.rand(5, 3)  # Only 5 rows, 10 workers
-            result = gower.gower_matrix(X, n_jobs=-1)
+            result = gower_exp.gower_matrix(X, n_jobs=-1)
             assert result.shape == (5, 5)

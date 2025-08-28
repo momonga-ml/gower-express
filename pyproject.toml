@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gower"
+name = "gower_exp"
 version = "0.1.2"
 authors = [
     { name="Michael Yan", email="tanbingy@gmail.com" },
@@ -14,12 +14,11 @@ description = "Enhanced fork of Michael Yan's gower package with GPU acceleratio
 readme = "README.md"
 requires-python = ">=3.7"
 license = "MIT"
-keywords = ["gower", "distance", "matrix", "similarity", "clustering"]
+keywords = ["gower", "gower_exp", "distance", "matrix", "similarity", "clustering"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Scientific/Engineering :: Mathematics",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
@@ -84,7 +83,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["gower"]
+known-first-party = ["gower_exp"]
 
 [tool.ruff.format]
 quote-style = "double"

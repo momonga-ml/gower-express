@@ -6,9 +6,9 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "../gower")
-import gower
-import gower.gower_dist as gd
+sys.path.insert(0, "../gower_exp")
+import gower_exp
+import gower_exp.gower_dist as gd
 
 
 class TestFinalPush:
@@ -36,12 +36,12 @@ class TestFinalPush:
 
     def test_gpu_not_available_path(self):
         """Test when GPU/CuPy is not available"""
-        with patch("gower.gower_dist.GPU_AVAILABLE", False):
+        with patch("gower_exp.gower_dist.GPU_AVAILABLE", False):
             module = gd.get_array_module(use_gpu=True)
             assert module is np
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp", create=True)
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp", create=True)
     def test_gpu_available_path(self, mock_cp):
         """Test when GPU is available"""
         module = gd.get_array_module(use_gpu=True)
@@ -53,7 +53,7 @@ class TestFinalPush:
             [[1, "text", 3.0], [2, "more", 4.0], [3, "data", 5.0]], dtype=object
         )
 
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
 
     def test_nan_range_computation(self):
@@ -61,30 +61,30 @@ class TestFinalPush:
         X = np.array([[np.nan, 1.0], [2.0, np.nan], [np.nan, np.nan]])
 
         # This should handle NaN without errors
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
-    @patch("gower.gower_dist.compute_ranges_numba")
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.compute_ranges_numba")
     def test_compute_ranges_numba_called(self, mock_compute):
         """Test that numba range computation is called"""
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
-        gower.gower_matrix(X)
+        gower_exp.gower_matrix(X)
         assert mock_compute.called
 
-    @patch("gower.gower_dist.NUMBA_AVAILABLE", True)
-    @patch("gower.gower_dist.compute_ranges_numba", side_effect=Exception)
+    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.compute_ranges_numba", side_effect=Exception)
     def test_compute_ranges_numba_exception(self, mock_compute):
         """Test fallback when numba range computation fails"""
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
-        result = gower.gower_matrix(X)
+        result = gower_exp.gower_matrix(X)
         assert result.shape == (2, 2)
 
     def test_compute_ranges_nan_handling(self):
         """Test range computation handles NaN max/min"""
-        with patch("gower.gower_dist.NUMBA_AVAILABLE", False):
+        with patch("gower_exp.gower_dist.NUMBA_AVAILABLE", False):
             X = np.array([[np.nan, np.nan], [np.nan, np.nan]])
-            result = gower.gower_matrix(X)
+            result = gower_exp.gower_matrix(X)
             assert result.shape == (2, 2)
 
     def test_parallel_n_jobs_negative(self):
@@ -92,8 +92,8 @@ class TestFinalPush:
         X = np.random.rand(150, 10)
 
         # n_jobs = -2
-        with patch("gower.gower_dist.os.cpu_count", return_value=4):
-            result = gower.gower_matrix(X, n_jobs=-2)
+        with patch("gower_exp.gower_dist.os.cpu_count", return_value=4):
+            result = gower_exp.gower_matrix(X, n_jobs=-2)
             assert result.shape == (150, 150)
 
     def test_parallel_chunk_aggregation(self):
@@ -101,7 +101,7 @@ class TestFinalPush:
         X = np.random.rand(120, 10)
 
         # Force parallel processing
-        result = gower.gower_matrix(X, n_jobs=2)
+        result = gower_exp.gower_matrix(X, n_jobs=2)
         assert result.shape == (120, 120)
 
         # Check symmetry for square matrix
@@ -112,7 +112,7 @@ class TestFinalPush:
         X = np.array([[1.0, 2.0]])
         Y = np.array([[3.0, 4.0], [5.0, 6.0]])  # Only 2 rows
 
-        result = gower.gower_topn(X, Y, n=5)  # Request 5 but only 2 available
+        result = gower_exp.gower_topn(X, Y, n=5)  # Request 5 but only 2 available
         assert len(result["index"]) == 2
 
     def test_gower_topn_optimized_conditions(self):
@@ -121,12 +121,12 @@ class TestFinalPush:
 
         # Small dataset - shouldn't optimize
         Y = np.random.rand(100, 2)
-        result = gower.gower_topn(X, Y, n=5, use_optimized=True)
+        result = gower_exp.gower_topn(X, Y, n=5, use_optimized=True)
         assert len(result["index"]) == 5
 
         # Large dataset, large n - shouldn't optimize
         Y = np.random.rand(6000, 2)
-        result = gower.gower_topn(X, Y, n=60, use_optimized=True)
+        result = gower_exp.gower_topn(X, Y, n=60, use_optimized=True)
         assert len(result["index"]) == 60
 
     def test_gower_topn_optimized_categorical_detection(self):
@@ -158,8 +158,8 @@ class TestFinalPush:
         )
         assert result.shape == (1, 2)
 
-    @patch("gower.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower.gower_dist.cp")
+    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
+    @patch("gower_exp.gower_dist.cp")
     def test_gpu_vectorized_implementation(self, mock_cp):
         """Test GPU vectorized implementation"""
         # Setup minimal mock

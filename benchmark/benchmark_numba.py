@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import pandas as pd
-import gower
+import gower_exp
 
 # Create a larger test dataset
 np.random.seed(42)
@@ -26,7 +26,7 @@ print(f"Dataset shape: {df.shape}")
 test_df = df.iloc[:100].copy()
 
 start_time = time.time()
-result = gower.gower_matrix(test_df)
+result = gower_exp.gower_matrix(test_df)
 end_time = time.time()
 
 print(f"Computation time: {end_time - start_time:.4f} seconds")
@@ -34,13 +34,13 @@ print(f"Result shape: {result.shape}")
 print(f"Sample distance: {result[0, 1]:.6f}")
 
 # Check if numba is being used
-from gower.gower_dist import NUMBA_AVAILABLE
+from gower_exp.gower_dist import NUMBA_AVAILABLE
 print(f"Numba available: {NUMBA_AVAILABLE}")
 
 # Test gower_topn
 print("\nTesting gower_topn...")
 start_time = time.time()
-topn_result = gower.gower_topn(test_df.iloc[:1], test_df, n=5)
+topn_result = gower_exp.gower_topn(test_df.iloc[:1], test_df, n=5)
 end_time = time.time()
 
 print(f"Top-N computation time: {end_time - start_time:.4f} seconds")

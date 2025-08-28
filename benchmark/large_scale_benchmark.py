@@ -11,9 +11,9 @@ import sys
 import os
 
 # Add the gower package to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import gower
+import gower_exp
 
 
 def create_large_diverse_dataset(n_samples=10000, n_features=10):
@@ -45,7 +45,7 @@ def original_gower_topn(data_x, data_y=None, weight=None, cat_features=None, n=5
         raise TypeError("Only support `data_x` of 1 row.")
     
     # Compute full distance matrix
-    dm = gower.gower_matrix(data_x, data_y, weight, cat_features)
+    dm = gower_exp.gower_matrix(data_x, data_y, weight, cat_features)
     
     # Find smallest distances
     flat = np.nan_to_num(dm[0], nan=999)
@@ -96,7 +96,7 @@ def detailed_performance_comparison():
         optimized_times = []
         for i in range(num_runs):
             start_time = time.perf_counter()
-            opt_result = gower.gower_topn(query, data, n=n)
+            opt_result = gower_exp.gower_topn(query, data, n=n)
             end_time = time.perf_counter()
             optimized_times.append(end_time - start_time)
             print(f"  Run {i+1}: {end_time - start_time:.4f}s")
@@ -150,7 +150,7 @@ def memory_usage_comparison():
     # Measure optimized implementation memory
     mem_before = process.memory_info().rss / 1024 / 1024  # MB
     
-    result_opt = gower.gower_topn(query, data, n=10)
+    result_opt = gower_exp.gower_topn(query, data, n=10)
     
     mem_after_opt = process.memory_info().rss / 1024 / 1024  # MB
     mem_used_opt = mem_after_opt - mem_before
@@ -182,7 +182,7 @@ def scalability_test():
         
         # Time optimized
         start = time.perf_counter()
-        opt_result = gower.gower_topn(query, data, n=n)
+        opt_result = gower_exp.gower_topn(query, data, n=n)
         opt_time = time.perf_counter() - start
         
         speedup = orig_time / opt_time if opt_time > 0 else float('inf')
