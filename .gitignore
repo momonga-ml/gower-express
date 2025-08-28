@@ -1,21 +1,68 @@
+# Python bytecode
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# uv package manager
+uv.lock
+.uv/
+
+# Ruff
+.ruff_cache/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Temporary files
 *.html
 *.csv
 *.json
-gower/.ipynb_checkpoints/
-gower/__pycache__/
-.ipynb_checkpoints/
-gower.egg-info/
-dist/
-.idea/
-build/
-*.ipynb
 
-
+# Claude Code
 CLAUDE.md
 .claude
-
-.coverage
-.coverage.*
-htmlcov
-tests/__pycache__/
 
