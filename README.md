@@ -181,3 +181,157 @@ gower_exp.gower_topn(Xd.iloc[0:2,:], Xd.iloc[:,], n = 5)
            dtype=float32)}
 
 
+# Scikit-learn Integration
+
+Gower-express provides lightweight integration with scikit-learn through optional compatibility functions. This allows you to use Gower distance seamlessly with sklearn's machine learning algorithms.
+
+## Installation with sklearn support
+
+```bash
+# Install with sklearn compatibility
+pip install gower_exp[sklearn]
+
+# Or for development with all optional dependencies
+uv pip install -e ".[dev,sklearn]"
+```
+
+## Using as a Custom Distance Metric
+
+You can use Gower distance with any sklearn algorithm that accepts custom distance metrics:
+
+```python
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import DBSCAN
+from gower_exp import GowerDistance
+
+# Configure Gower distance with your feature types
+gower_metric = GowerDistance(cat_features=[True, False, True, False, True, False])
+
+# Use with k-NN classifier
+knn = KNeighborsClassifier(metric=gower_metric, algorithm='brute', n_neighbors=3)
+knn.fit(X, y)
+predictions = knn.predict(X_test)
+
+# Use with DBSCAN clustering  
+clustering = DBSCAN(metric=gower_metric, eps=0.3)
+cluster_labels = clustering.fit_predict(X)
+```
+
+## Convenience Functions
+
+For common use cases, gower-express provides ready-to-use convenience functions:
+
+```python
+from gower_exp import make_gower_knn_classifier, make_gower_knn_regressor
+
+# Create a k-NN classifier with Gower distance
+classifier = make_gower_knn_classifier(
+    n_neighbors=5,
+    cat_features=[True, False, True, False, True, False],  # Specify categorical features
+    weights='distance'  # Use distance weighting
+)
+
+classifier.fit(X_train, y_train)
+predictions = classifier.predict(X_test)
+
+# Create a k-NN regressor 
+regressor = make_gower_knn_regressor(
+    n_neighbors=3,
+    cat_features='auto',  # Auto-detect categorical features (pandas DataFrames)
+    feature_weights=[2.0, 1.0, 1.0, 0.5, 1.0, 1.0]  # Custom feature weights
+)
+
+regressor.fit(X_train, y_train)
+predictions = regressor.predict(X_test)
+```
+
+## Precomputed Distance Matrices (Recommended for Large Datasets)
+
+For better performance with repeated operations on the same dataset, use precomputed distance matrices:
+
+```python
+from sklearn.neighbors import KNeighborsClassifier
+from gower_exp import precomputed_gower_matrix
+
+# Compute distance matrices once
+distances = precomputed_gower_matrix(X_train, X_test, cat_features=[True, False, True])
+
+# Train classifier with precomputed distances
+knn = KNeighborsClassifier(metric='precomputed', n_neighbors=5)
+knn.fit(distances['train'], y_train)
+
+# Predict using test-to-train distances
+predictions = knn.predict(distances['test'])
+```
+
+## Integration with sklearn Pipelines
+
+Gower distance works seamlessly with sklearn's pipeline and model selection tools:
+
+```python
+from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from gower_exp import make_gower_knn_classifier
+
+# Create classifier
+clf = make_gower_knn_classifier(cat_features=[True, False, True])
+
+# Use with cross-validation
+scores = cross_val_score(clf, X, y, cv=5, scoring='accuracy')
+
+# Use with grid search (note: limited to hyperparameters that don't affect the metric)
+param_grid = {
+    'n_neighbors': [3, 5, 7],
+    'weights': ['uniform', 'distance']
+}
+
+grid_search = GridSearchCV(
+    make_gower_knn_classifier(cat_features=[True, False, True]),
+    param_grid,
+    cv=3,
+    scoring='accuracy'
+)
+grid_search.fit(X, y)
+```
+
+## Feature Type Detection
+
+The sklearn integration supports automatic categorical feature detection when using pandas DataFrames:
+
+```python
+import pandas as pd
+from gower_exp import make_gower_knn_classifier
+
+# Create DataFrame with mixed types
+df = pd.DataFrame({
+    'age': [25, 30, 35, 40],
+    'category': ['A', 'B', 'A', 'C'],  # Automatically detected as categorical
+    'salary': [50000, 60000, 55000, 65000],
+    'city': ['NYC', 'LA', 'NYC', 'Chicago']  # Automatically detected as categorical
+})
+
+# Auto-detect categorical features (recommended for DataFrames)
+classifier = make_gower_knn_classifier(cat_features='auto')
+classifier.fit(df, y)
+```
+
+## Performance Tips
+
+1. **Use precomputed matrices** for repeated operations on the same dataset
+2. **Specify categorical features explicitly** when possible to avoid auto-detection overhead
+3. **Consider feature weights** based on domain knowledge for better results
+4. **Use algorithm='brute'** is required for custom metrics in sklearn (automatically set by convenience functions)
+
+## Supported sklearn Algorithms
+
+Gower distance works with any sklearn algorithm that accepts:
+- **Custom distance metrics**: KNeighborsClassifier, KNeighborsRegressor, DBSCAN, etc.
+- **Precomputed distances**: Most clustering algorithms, some dimensionality reduction techniques
+
+Popular combinations:
+- **Classification**: `KNeighborsClassifier` with Gower distance
+- **Regression**: `KNeighborsRegressor` with Gower distance  
+- **Clustering**: `DBSCAN`, `AgglomerativeClustering` with precomputed Gower distances
+- **Outlier Detection**: `LocalOutlierFactor` with Gower distance
+

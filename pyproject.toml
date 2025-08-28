@@ -45,6 +45,9 @@ dev = [
 gpu = [
     "cupy-cuda11x>=10.0.0"
 ]
+sklearn = [
+    "scikit-learn>=0.24.0"
+]
 
 [project.urls]
 "Homepage" = "https://github.com/momonga-ml/gower-express"
