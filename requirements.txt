@@ -3,3 +3,7 @@ scipy
 pandas
 numba>=0.56.0
 joblib>=1.2.0
+
+# Optional GPU acceleration (install with: pip install cupy-cuda11x or cupy-cuda12x)
+# cupy-cuda11x>=10.0.0  # For CUDA 11.x
+# cupy-cuda12x>=10.0.0  # For CUDA 12.x
