@@ -1,3 +1,5 @@
 numpy
 scipy
 pandas
+numba>=0.56.0
+joblib>=1.2.0
