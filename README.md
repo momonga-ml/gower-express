@@ -1,23 +1,56 @@
-<!-- badges: start -->
-[![Build Status](https://travis-ci.com/wwwjk366/gower.svg?branch=master)](https://travis-ci.com/wwwjk366/gower)
-[![PyPI version](https://badge.fury.io/py/gower.svg)](https://pypi.org/project/gower/)
-[![Downloads](https://pepy.tech/badge/gower/month)](https://pepy.tech/project/gower/month)
-<!-- badges: end -->
+# Gower Express
 
-# Introduction
+**An enhanced fork of Michael Yan's gower package with GPU acceleration and performance improvements.**
+
+This project is a fork of [Michael Yan's original gower package](https://github.com/wwwjk366/gower) that adds significant performance improvements, GPU acceleration support, and modern Python tooling.
+
+## What's New in This Fork
+
+- 🚀 **GPU Acceleration**: CuPy support for massive performance gains on CUDA-enabled GPUs
+- ⚡ **Performance Optimizations**: Numba JIT compilation for faster CPU computations  
+- 🔧 **Modern Tooling**: Updated development workflow with uv and ruff
+- 🧪 **Enhanced Testing**: Improved test coverage and performance benchmarks
+- 🐛 **Bug Fixes**: Resolved issues with negative values and NaN handling
+- 📦 **Better Dependencies**: Optimized dependency management and optional GPU dependencies
+
+## Introduction
 
 Gower's distance calculation in Python. Gower Distance is a distance measure that can be used to calculate distance between two entity whose attribute has a mixed of categorical and numerical values. [Gower (1971) A general coefficient of similarity and some of its properties. Biometrics 27 857–874.](https://www.jstor.org/stable/2528823?seq=1) 
 
-More details and examples can be found on my personal website here:(https://www.thinkdatascience.com/post/2019-12-16-introducing-python-package-gower/)
+## Credits and Attribution
 
-Core functions are wrote by [Marcelo Beckmann](https://sourceforge.net/projects/gower-distance-4python/files/).
+- **Original Author**: [Michael Yan](https://github.com/wwwjk366) - Created the original gower package
+- **Core Algorithm**: [Marcelo Beckmann](https://sourceforge.net/projects/gower-distance-4python/files/) - Wrote the core functions
+- **Additional Contributors**: Various contributors who improved the original package
+- **This Fork**: Enhanced with GPU acceleration, performance optimizations, and modern tooling
+
+More details about the original implementation can be found on [Michael Yan's website](https://www.thinkdatascience.com/post/2019-12-16-introducing-python-package-gower/).
 
 # Examples
 
 ## Installation
 
-```
+### Standard Installation
+```bash
 pip install gower
+```
+
+### Development Installation with uv (Recommended)
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+uv pip install -e ".[dev]"
+
+# For GPU acceleration support
+uv pip install -e ".[dev,gpu]"
+```
+
+### Legacy pip Installation for Development
+```bash
+pip install -e ".[dev]"
 ```
 
 ## Generate some data

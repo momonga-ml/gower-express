@@ -7,9 +7,10 @@ name = "gower"
 version = "0.1.2"
 authors = [
     { name="Michael Yan", email="tanbingy@gmail.com" },
-    { name="Dominic Dall'Osto" }
+    { name="Dominic Dall'Osto" },
+    { name="Momonga ML Contributors" }
 ]
-description = "Python implementation of Gowers distance, pairwise between records in two data sets"
+description = "Enhanced fork of Michael Yan's gower package with GPU acceleration and performance improvements"
 readme = "README.md"
 requires-python = ">=3.7"
 license = "MIT"
@@ -47,9 +48,10 @@ gpu = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/wwwjk366/gower"
-"Bug Reports" = "https://github.com/wwwjk366/gower/issues"
-"Source" = "https://github.com/wwwjk366/gower"
+"Homepage" = "https://github.com/momonga-ml/gower-express"
+"Bug Reports" = "https://github.com/momonga-ml/gower-express/issues"
+"Source" = "https://github.com/momonga-ml/gower-express"
+"Original" = "https://github.com/wwwjk366/gower"
 
 [tool.ruff]
 line-length = 88
