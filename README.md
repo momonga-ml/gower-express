@@ -83,15 +83,6 @@ python benchmark/large_scale_benchmark.py
 
 Gower's distance calculation in Python. Gower Distance is a distance measure that can be used to calculate distance between two entity whose attribute has a mixed of categorical and numerical values. [Gower (1971) A general coefficient of similarity and some of its properties. Biometrics 27 857–874.](https://www.jstor.org/stable/2528823?seq=1)
 
-## Credits and Attribution
-
-- **Original Author**: [Michael Yan](https://github.com/wwwjk366) - Created the original gower package
-- **Core Algorithm**: [Marcelo Beckmann](https://sourceforge.net/projects/gower-distance-4python/files/) - Wrote the core functions
-- **Additional Contributors**: Various contributors who improved the original package
-- **This Fork**: Enhanced with GPU acceleration, performance optimizations, and modern tooling
-
-More details about the original implementation can be found on [Michael Yan's website](https://www.thinkdatascience.com/post/2019-12-16-introducing-python-package-gower/).
-
 # Examples
 
 ## Installation
