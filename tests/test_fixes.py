@@ -269,6 +269,7 @@ class TestAdditionalCoverage:
             num_max,
             2,
             2,
+            True,  # is_symmetric (X == Y)
         )
 
         assert result.shape == (1, 2)

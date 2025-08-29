@@ -16,7 +16,7 @@ def create_simple_test():
 
 def test_simple_case():
     """Test with simple case to verify functionality"""
-    from gower import gower_matrix
+    from gower_exp import gower_matrix
 
     data, cat_features = create_simple_test()
     print("Testing with simple data:")

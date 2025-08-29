@@ -36,6 +36,7 @@ def _compute_gower_matrix_parallel(
 
     This function splits the computation into chunks and processes them in parallel
     using joblib.Parallel. Each chunk computes a subset of rows in the distance matrix.
+    For symmetric matrices, uses optimization to compute only the upper triangle.
     """
     # Import here to avoid circular imports
 
@@ -44,6 +45,8 @@ def _compute_gower_matrix_parallel(
         n_jobs = os.cpu_count()
     elif n_jobs < -1:
         n_jobs = max(1, os.cpu_count() + 1 + n_jobs)
+
+    is_symmetric = x_n_rows == y_n_rows
 
     # Create chunks of row indices to process
     chunk_size = max(1, x_n_rows // n_jobs)
@@ -70,6 +73,7 @@ def _compute_gower_matrix_parallel(
             num_max,
             x_n_rows,
             y_n_rows,
+            is_symmetric,
         )
         for start_idx, end_idx in row_chunks
     )
@@ -81,13 +85,13 @@ def _compute_gower_matrix_parallel(
         out[start_idx:end_idx, :] = chunk_result
 
     # Handle symmetric matrix case - fill lower triangle
-    if x_n_rows == y_n_rows:
+    if is_symmetric:
         for i in range(x_n_rows):
             for j in range(i):
                 out[i, j] = out[j, i]
 
-    # For symmetric matrices, ensure diagonal is exactly 0
-    if x_n_rows == y_n_rows:
+    # For symmetric matrices, ensure diagonal is exactly 0 (unless all weights are zero)
+    if is_symmetric and weight_sum > 0:
         np.fill_diagonal(out, 0.0)
 
     return out
@@ -108,12 +112,14 @@ def _compute_chunk(
     num_max,
     x_n_rows,
     y_n_rows,
+    is_symmetric,
 ):
     """
     Compute a chunk of the Gower distance matrix.
 
     This function processes rows from start_idx to end_idx and returns
     the corresponding chunk of the distance matrix.
+    For symmetric matrices, only computes upper triangle elements.
     """
     # Import here to avoid circular imports
     from .core import gower_get
@@ -123,30 +129,38 @@ def _compute_chunk(
 
     for i in range(chunk_size):
         row_idx = start_idx + i
-        j_start = row_idx
-        if x_n_rows != y_n_rows:
-            j_start = 0
 
-        # call the main function
-        res = gower_get(
-            X_cat[row_idx, :],
-            X_num[row_idx, :],
-            Y_cat[j_start:y_n_rows, :],
-            Y_num[j_start:y_n_rows, :],
-            weight_cat,
-            weight_num,
-            weight_sum,
-            cat_features,
-            num_ranges,
-            num_max,
-        )
-
-        chunk_out[i, j_start:] = res
-
-        # Handle symmetric matrix case
-        if x_n_rows == y_n_rows:
-            # For symmetric matrices, we need to handle the upper/lower triangle properly
-            # This implementation focuses on correctness rather than optimal symmetric handling
-            pass
+        if is_symmetric:
+            # Symmetric case: only compute upper triangle (including diagonal)
+            j_start = row_idx
+            if j_start < y_n_rows:
+                res = gower_get(
+                    X_cat[row_idx, :],
+                    X_num[row_idx, :],
+                    Y_cat[j_start:y_n_rows, :],
+                    Y_num[j_start:y_n_rows, :],
+                    weight_cat,
+                    weight_num,
+                    weight_sum,
+                    cat_features,
+                    num_ranges,
+                    num_max,
+                )
+                chunk_out[i, j_start:] = res
+        else:
+            # Non-symmetric case: compute full row
+            res = gower_get(
+                X_cat[row_idx, :],
+                X_num[row_idx, :],
+                Y_cat,
+                Y_num,
+                weight_cat,
+                weight_num,
+                weight_sum,
+                cat_features,
+                num_ranges,
+                num_max,
+            )
+            chunk_out[i, :] = res
 
     return chunk_out

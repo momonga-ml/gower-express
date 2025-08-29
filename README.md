@@ -15,67 +15,54 @@ This project is a fork of [Michael Yan's original gower package](https://github.
 - 🐛 **Bug Fixes**: Resolved issues with negative values and NaN handling
 - 📦 **Better Dependencies**: Optimized dependency management and optional GPU dependencies
 
-## Performance Benchmarks
+## Performance and Features
 
-**Why choose gower-express over the original gower package?** Here's the data:
+**Why choose gower-express over the original gower package?** Here are the key improvements:
 
-### Key Performance Improvements
+### Core Enhancements
 
-| Metric | Original Package | Gower-Express | Improvement |
-|--------|-----------------|---------------|-------------|
-| **Top-N Search Speed** | 0.52s (1000 samples) | 0.19s | **2.7x faster** 🚀 |
-| **Memory Efficiency** | Full matrix storage | Heap-based algorithm | **~95% less memory** 💾 |
-| **Large Dataset Handling** | Memory bottleneck at 10K+ | Scales to 20K+ samples | **Better scalability** ⚡ |
-| **Correctness** | ✅ Verified | ✅ Verified | **Same accuracy** |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **GPU Acceleration** | ✅ Available | CuPy integration for CUDA-enabled GPUs |
+| **Numba JIT Compilation** | ✅ Working | Faster CPU computations with JIT acceleration |
+| **Improved Testing** | ✅ Enhanced | Better test coverage and benchmarking suite |
+| **Bug Fixes** | ✅ Resolved | Fixed issues with negative values and NaN handling |
+| **Modern Tooling** | ✅ Updated | Modern development workflow with uv and ruff |
 
-### gower_topn Optimization Results
+### Performance Notes
 
-Our optimized `gower_topn` function provides significant advantages for nearest neighbor search:
+**Current Performance Status:**
+- **Matrix Computation**: Optimized with Numba JIT compilation and vectorization
+- **GPU Support**: Available with CuPy for large-scale computations
+- **Top-N Search**: Uses standard algorithms - optimization work in progress
+- **Memory Usage**: Efficient for typical use cases, scales well with available hardware
 
-| Dataset Size | Query Type | Memory Reduction | Performance Gain |
-|-------------|------------|------------------|------------------|
-| 1,000 samples | Top-5 | 88% less memory | 1.5x speedup |
-| 5,000 samples | Top-10 | 85% less memory | Similar speed |
-| 10,000+ samples | Top-20 | 90%+ less memory | **Memory scalable** |
+**Benchmark Results:**
+Our benchmarking shows consistent performance with the original package while adding GPU support and modern tooling. See `Benchmark.MD` for detailed performance analysis across different dataset sizes and configurations.
 
-### Real-World Performance Scenarios
+### Why Choose gower-express?
 
-**Scenario 1: Small-Medium Datasets (1K-5K samples)**
-- Original: Full distance matrix computation required
-- Gower-Express: Early stopping + heap optimization
-- **Result**: 1.1-1.6x speedup with drastically reduced memory usage
+**Key Advantages:**
 
-**Scenario 2: Large Datasets (10K+ samples)**
-- Original: Memory-intensive, potential crashes
-- Gower-Express: Memory-efficient algorithm, predictable performance
-- **Result**: Enables processing of datasets that would otherwise fail
+1. **🚀 GPU Acceleration**: Optional CuPy integration for CUDA-enabled GPUs allows processing of massive datasets with significant speedups when available.
 
-**Scenario 3: Production Systems**
-- Original: High memory overhead per query
-- Gower-Express: Consistent memory footprint regardless of dataset size
-- **Result**: Better resource utilization and system stability
+2. **⚡ Numba JIT Compilation**: Faster CPU computations through just-in-time compilation for core distance calculations.
 
-### Why gower-express?
+3. **🧪 Enhanced Testing**: Comprehensive test suite with edge case handling, performance benchmarks, and correctness verification.
 
-**Technical Optimizations Under the Hood:**
+4. **🐛 Bug Fixes**: Resolved issues with negative values, NaN handling, and edge cases that existed in the original package.
 
-1. **🎯 Early Stopping Algorithm**: For `gower_topn`, we avoid computing the full distance matrix by using a min-heap to track only the top-N candidates, stopping computation early when possible.
+5. **🔧 Modern Development**: Updated packaging, dependency management, and development tools (uv, ruff) for better maintainability.
 
-2. **💾 Memory-Efficient Design**: Instead of storing an O(n²) distance matrix, we use O(n) memory for heap-based top-N search, enabling processing of much larger datasets.
-
-3. **⚡ Vectorized Operations**: Optimized NumPy operations and broadcasting for faster distance calculations across mixed categorical and numerical features.
-
-4. **🚀 Optional GPU Acceleration**: CuPy integration allows processing of massive datasets on CUDA-enabled GPUs for even greater speedups.
-
-5. **🔧 Modern Codebase**: Clean, maintainable code with comprehensive testing, type hints, and modern Python packaging.
+6. **📦 Flexible Dependencies**: Optional GPU dependencies and sklearn compatibility - install only what you need.
 
 **Run the Benchmarks Yourself:**
 ```bash
 # Quick performance test
-python benchmark/ultimate_benchmark.py
+python benchmark/clean_benchmark.py
 
 # Comprehensive benchmarks
-python benchmark/benchmark_gower_topn.py
+python benchmark/benchmark_vectorized.py
 python benchmark/large_scale_benchmark.py
 ```
 

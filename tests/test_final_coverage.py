@@ -170,6 +170,7 @@ class TestFinalCoverage:
             np.array([5.0]),
             2,
             3,  # Different dimensions
+            False,  # is_symmetric
         )
 
         assert result.shape == (1, 3)

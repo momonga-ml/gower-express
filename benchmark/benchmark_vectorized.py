@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import numpy as np
 import pandas as pd
 import time
-from gower import gower_matrix
+from gower_exp import gower_matrix
 
 def create_test_data(n_samples=1000, n_features=10, cat_ratio=0.5):
     """Create test data with mixed numeric and categorical features."""

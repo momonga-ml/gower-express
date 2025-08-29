@@ -193,8 +193,8 @@ def gower_matrix_vectorized(
     # Normalize by total weight
     out = total_distances / weight_sum
 
-    # For symmetric matrices, ensure diagonal is exactly 0
-    if is_symmetric and x_n_rows == y_n_rows:
+    # For symmetric matrices, ensure diagonal is exactly 0 (unless all weights are zero)
+    if is_symmetric and x_n_rows == y_n_rows and weight_sum > 0:
         np.fill_diagonal(out, 0.0)
 
     return out

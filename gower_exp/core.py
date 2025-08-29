@@ -115,20 +115,25 @@ def gower_get(
         sum_cat = np.zeros(output_shape, dtype=np.float32)
 
     # numerical columns
-    abs_delta = np.absolute(xi_num - xj_num)
+    if len(xi_num) > 0:
+        abs_delta = np.absolute(xi_num - xj_num)
 
-    # Handle NaN values properly: when both values are NaN, distance should be 0
-    both_nan = np.isnan(xi_num) & np.isnan(xj_num)
-    abs_delta = np.where(both_nan, 0.0, abs_delta)
+        # Handle NaN values properly: when both values are NaN, distance should be 0
+        both_nan = np.isnan(xi_num) & np.isnan(xj_num)
+        abs_delta = np.where(both_nan, 0.0, abs_delta)
 
-    sij_num = np.divide(
-        abs_delta,
-        ranges_of_numeric,
-        out=np.zeros_like(abs_delta),
-        where=ranges_of_numeric != 0,
-    )
+        sij_num = np.divide(
+            abs_delta,
+            ranges_of_numeric,
+            out=np.zeros_like(abs_delta),
+            where=ranges_of_numeric != 0,
+        )
 
-    sum_num = np.multiply(feature_weight_num, sij_num).sum(axis=1)
+        sum_num = np.multiply(feature_weight_num, sij_num).sum(axis=1)
+    else:
+        # Handle empty numerical arrays - return zeros with correct shape
+        # Use sum_cat shape to match the output
+        sum_num = np.zeros_like(sum_cat, dtype=np.float32)
     sums = np.add(sum_cat, sum_num)
     sum_sij = np.divide(sums, feature_weight_sum)
 

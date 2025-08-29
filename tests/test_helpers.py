@@ -305,6 +305,7 @@ class TestHelperFunctions:
             num_max,
             x_n_rows,
             y_n_rows,
+            False,  # is_symmetric
         )
 
         assert result.shape == (1, 3)

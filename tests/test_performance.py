@@ -230,6 +230,7 @@ class TestPerformanceOptimizations:
             num_max,
             4,
             4,
+            True,  # is_symmetric (X == Y)
         )
 
         assert chunk_result.shape == (2, 4)
@@ -267,6 +268,8 @@ class TestPerformanceOptimizations:
     def test_optimized_topn_early_stopping(self):
         """Test that heap optimization provides early stopping benefit"""
         # Create dataset where first few are very close matches
+        # Set seed for deterministic results
+        np.random.seed(42)
         X = np.array([[1.0, 1.0]])
         Y = np.vstack(
             [
@@ -283,9 +286,11 @@ class TestPerformanceOptimizations:
     @patch("gower_exp.parallel.Parallel")
     def test_parallel_backend_configuration(self, mock_parallel):
         """Test that parallel backend is configured correctly"""
-        mock_parallel.return_value.return_value = [np.zeros((50, 100))]
+        # Use a large enough dataset to trigger parallel processing
+        # Need x_n_rows * y_n_rows >= 1000000 and x_n_rows >= 100
+        mock_parallel.return_value.return_value = [np.zeros((500, 1000))]
 
-        X = np.random.rand(100, 10)
+        X = np.random.rand(1000, 10)  # 1000 * 1000 = 1,000,000 >= threshold
         gower_exp.gower_matrix(X, n_jobs=2)
 
         # Check that Parallel was called with loky backend

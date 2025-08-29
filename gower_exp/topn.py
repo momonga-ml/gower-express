@@ -25,6 +25,13 @@ from .accelerators import NUMBA_AVAILABLE, smallest_indices_numba  # noqa: E402
 def smallest_indices(ary, n):
     """Returns the n largest indices from a numpy array."""
     flat = ary.flatten().astype(np.float32)
+    flat = np.nan_to_num(flat, nan=999)
+
+    # Handle edge case where n >= array length
+    if n >= len(flat):
+        indices = np.argsort(flat)
+        values = flat[indices]
+        return {"index": indices, "values": values}
 
     # Try numba version first
     if NUMBA_AVAILABLE:
@@ -39,7 +46,6 @@ def smallest_indices(ary, n):
             )
 
     # Original numpy implementation
-    flat = np.nan_to_num(flat, nan=999)
     indices = np.argpartition(flat, n)[:n]
     indices = indices[np.argsort(flat[indices])]
     values = flat[indices]
@@ -156,54 +162,62 @@ def _gower_topn_heap(
     total_rows,
 ):
     """
-    Heap-based incremental top-N computation.
-    Uses max-heap to maintain top-N candidates with early stopping.
+    Simplified heap-based top-N computation.
+    Focus on reducing computational overhead rather than complex early stopping.
     """
 
-    # Initialize heap with first n distances
-    heap = []
     n_actual = min(n, total_rows)
+    heap = []
 
-    for i in range(n_actual):
-        # Compute distance for row i
-        dist = _compute_single_distance(
-            query_cat,
-            query_num,
-            data_cat[i, :] if data_cat.ndim > 1 else data_cat,
-            data_num[i, :] if data_num.ndim > 1 else data_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            num_ranges,
-        )
-        # Use negative distance for max-heap behavior
-        heapq.heappush(heap, (-dist, i))
+    # For very large datasets, use vectorized computation in chunks
+    if total_rows > 5000:
+        # Process in chunks to avoid memory issues but maintain speed
+        chunk_size = 1000
 
-    # Early stopping threshold
-    if heap:
-        max_dist = -heap[0][0]
+        for start_idx in range(0, total_rows, chunk_size):
+            end_idx = min(start_idx + chunk_size, total_rows)
 
-    # Process remaining rows with early stopping
-    for i in range(n_actual, total_rows):
-        # Compute distance
-        dist = _compute_single_distance(
-            query_cat,
-            query_num,
-            data_cat[i, :] if data_cat.ndim > 1 else data_cat,
-            data_num[i, :] if data_num.ndim > 1 else data_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            num_ranges,
-        )
+            # Vectorized distance computation for chunk
+            chunk_distances = _compute_chunk_distances(
+                query_cat,
+                query_num,
+                data_cat[start_idx:end_idx],
+                data_num[start_idx:end_idx],
+                weight_cat,
+                weight_num,
+                weight_sum,
+                num_ranges,
+            )
 
-        # Only update heap if distance is better
-        if dist < max_dist:
-            heapq.heapreplace(heap, (-dist, i))
-            max_dist = -heap[0][0]
+            # Process chunk results
+            for i, dist in enumerate(chunk_distances):
+                actual_idx = start_idx + i
+
+                if len(heap) < n_actual:
+                    heapq.heappush(heap, (-dist, actual_idx))
+                elif dist < -heap[0][0]:
+                    heapq.heapreplace(heap, (-dist, actual_idx))
+    else:
+        # For smaller datasets, use simple row-by-row with optimized computation
+        for i in range(total_rows):
+            dist = _compute_single_distance_cached(
+                query_cat,
+                query_num,
+                data_cat[i, :] if data_cat.ndim > 1 else data_cat,
+                data_num[i, :] if data_num.ndim > 1 else data_num,
+                weight_cat,
+                weight_num,
+                weight_sum,
+                num_ranges,
+            )
+
+            if len(heap) < n_actual:
+                heapq.heappush(heap, (-dist, i))
+            elif dist < -heap[0][0]:
+                heapq.heapreplace(heap, (-dist, i))
 
     # Extract results from heap
-    results = sorted(heap, key=lambda x: -x[0])  # Sort by distance (ascending)
+    results = sorted(heap, key=lambda x: -x[0])
     indices = np.array([idx for _, idx in results], dtype=np.int32)
     distances = np.array([-dist for dist, _ in results], dtype=np.float32)
 
@@ -241,3 +255,80 @@ def _compute_single_distance(
 
     # Combined distance
     return (cat_dist + num_dist) / weight_sum
+
+
+def _compute_single_distance_cached(
+    query_cat,
+    query_num,
+    row_cat,
+    row_num,
+    weight_cat,
+    weight_num,
+    weight_sum,
+    num_ranges,
+):
+    """
+    Optimized distance computation with minimal overhead.
+    Uses vectorized operations where possible.
+    """
+
+    # Fast path for common cases
+    total_dist = 0.0
+
+    # Categorical distance - vectorized comparison
+    if len(query_cat) > 0 and len(weight_cat) > 0:
+        cat_matches = query_cat == row_cat
+        cat_dist = np.sum(weight_cat[~cat_matches])
+        total_dist += cat_dist
+
+    # Numerical distance - vectorized operations
+    if len(query_num) > 0 and len(weight_num) > 0:
+        # Only compute for non-zero ranges to avoid division
+        valid_ranges = num_ranges != 0
+        if np.any(valid_ranges):
+            abs_delta = np.abs(query_num[valid_ranges] - row_num[valid_ranges])
+            normalized_delta = abs_delta / num_ranges[valid_ranges]
+            num_dist = np.dot(normalized_delta, weight_num[valid_ranges])
+            total_dist += num_dist
+
+    return total_dist / weight_sum
+
+
+def _compute_chunk_distances(
+    query_cat,
+    query_num,
+    chunk_data_cat,
+    chunk_data_num,
+    weight_cat,
+    weight_num,
+    weight_sum,
+    num_ranges,
+):
+    """
+    Vectorized computation of distances for a chunk of data.
+    """
+    chunk_size = chunk_data_cat.shape[0] if chunk_data_cat.ndim > 1 else 1
+    distances = np.zeros(chunk_size, dtype=np.float32)
+
+    for i in range(chunk_size):
+        # Extract row data
+        if chunk_data_cat.ndim > 1:
+            row_cat = chunk_data_cat[i, :]
+            row_num = chunk_data_num[i, :]
+        else:
+            row_cat = chunk_data_cat
+            row_num = chunk_data_num
+
+        # Use the cached distance computation
+        distances[i] = _compute_single_distance_cached(
+            query_cat,
+            query_num,
+            row_cat,
+            row_num,
+            weight_cat,
+            weight_num,
+            weight_sum,
+            num_ranges,
+        )
+
+    return distances

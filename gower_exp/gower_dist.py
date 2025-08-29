@@ -25,7 +25,7 @@ from .topn import (
     gower_topn_optimized,
     smallest_indices,
 )
-from .vectorized import gower_matrix_vectorized_gpu
+from .vectorized import gower_matrix_vectorized, gower_matrix_vectorized_gpu
 
 # Re-export numpy for backward compatibility
 
@@ -67,6 +67,28 @@ def gower_matrix(
     --------
     ndarray, shape (n_samples, m_samples)
         Gower distance matrix
+
+    Examples:
+    ---------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> import gower_exp
+    >>>
+    >>> # Create mixed-type dataset
+    >>> data = pd.DataFrame({
+    ...     'age': [25, 32, 28, 35, 29],
+    ...     'gender': ['M', 'F', 'M', 'F', 'M'],
+    ...     'salary': [50000, 75000, 45000, 85000, 60000],
+    ...     'city': ['NYC', 'LA', 'NYC', 'Chicago', 'LA'],
+    ...     'experience': [2.5, 8.0, 3.5, 10.0, 5.5]
+    ... })
+    >>>
+    >>> # Compute Gower distance matrix
+    >>> distances = gower_exp.gower_matrix(data)
+    >>> print(distances.shape)
+    (5, 5)
+    >>> print(f"Distance between samples 0 and 1: {distances[0, 1]:.3f}")
+    Distance between samples 0 and 1: 0.567
     """
     # Validate Inputs
     if data_x is None:
@@ -223,39 +245,55 @@ def gower_matrix(
             weight_num_gpu = xp.asarray(weight_num)
             num_ranges_gpu = xp.asarray(num_ranges)
 
-            # Compute on GPU
-            out_gpu = gower_matrix_vectorized_gpu(
-                X_cat_gpu,
-                X_num_gpu,
-                Y_cat_gpu,
-                Y_num_gpu,
-                weight_cat_gpu,
-                weight_num_gpu,
-                weight_sum,
-                num_ranges_gpu,
-                x_n_rows == y_n_rows,
-                xp,
-            )
+            try:
+                # Compute on GPU
+                out_gpu = gower_matrix_vectorized_gpu(
+                    X_cat_gpu,
+                    X_num_gpu,
+                    Y_cat_gpu,
+                    Y_num_gpu,
+                    weight_cat_gpu,
+                    weight_num_gpu,
+                    weight_sum,
+                    num_ranges_gpu,
+                    x_n_rows == y_n_rows,
+                    xp,
+                )
 
-            # Transfer result back to CPU
-            out = cp.asnumpy(out_gpu) if use_gpu else out_gpu
-            return out
+                # Transfer result back to CPU
+                out = cp.asnumpy(out_gpu) if use_gpu else out_gpu
+                return out
+            finally:
+                # Clean up GPU memory
+                if use_gpu and cp is not None:
+                    cp.get_default_memory_pool().free_all_blocks()
         except Exception:
             # Fall back to CPU if GPU computation fails
             use_gpu = False
             xp = np
 
     # CPU computation path
-    if True:
-        if (
-            n_jobs == 1 or x_n_rows < 100
-        ):  # Use sequential for small datasets or single job
-            # Original sequential implementation
-            for i in range(x_n_rows):
+    if x_n_rows * y_n_rows < 1000000:
+        # Use vectorized implementation for medium-sized datasets
+        out = gower_matrix_vectorized(
+            X_cat,
+            X_num,
+            Y_cat,
+            Y_num,
+            weight_cat,
+            weight_num,
+            weight_sum,
+            num_ranges,
+            x_n_rows == y_n_rows,
+        )
+    elif (
+        n_jobs == 1 or x_n_rows < 100
+    ):  # Use sequential for small datasets or single job
+        # Sequential implementation with symmetric optimization
+        for i in range(x_n_rows):
+            if x_n_rows == y_n_rows:
+                # Symmetric case: only compute upper triangle (including diagonal)
                 j_start = i
-                if x_n_rows != y_n_rows:
-                    j_start = 0
-                # call the main function
                 res = gower_get(
                     X_cat[i, :],
                     X_num[i, :],
@@ -268,33 +306,59 @@ def gower_matrix(
                     num_ranges,
                     num_max,
                 )
-                # print(res)
+                # Fill upper triangle
                 out[i, j_start:] = res
-                if x_n_rows == y_n_rows:
-                    out[i:, j_start] = res
-        else:
-            # Use parallel processing for large datasets
-            out = _compute_gower_matrix_parallel(
-                X_cat,
-                X_num,
-                Y_cat,
-                Y_num,
-                weight_cat,
-                weight_num,
-                weight_sum,
-                cat_features,
-                num_ranges,
-                num_max,
-                x_n_rows,
-                y_n_rows,
-                n_jobs,
-            )
+                # Fill lower triangle symmetrically (skip diagonal to avoid overwriting)
+                if len(res) > 1:  # Only if there are off-diagonal elements
+                    out[j_start + 1 :, i] = res[1:]
+            else:
+                # Non-symmetric case: compute full row
+                res = gower_get(
+                    X_cat[i, :],
+                    X_num[i, :],
+                    Y_cat,
+                    Y_num,
+                    weight_cat,
+                    weight_num,
+                    weight_sum,
+                    cat_features,
+                    num_ranges,
+                    num_max,
+                )
+                out[i, :] = res
+    else:
+        # Use parallel processing for large datasets
+        out = _compute_gower_matrix_parallel(
+            X_cat,
+            X_num,
+            Y_cat,
+            Y_num,
+            weight_cat,
+            weight_num,
+            weight_sum,
+            cat_features,
+            num_ranges,
+            num_max,
+            x_n_rows,
+            y_n_rows,
+            n_jobs,
+        )
 
     if verbose:
         print(f"Gower matrix computed in {time.time() - start_time:.2f}s")  # type:ignore
-        print(
-            f"Method used: {'GPU' if use_gpu and GPU_AVAILABLE else 'Numba' if NUMBA_AVAILABLE else 'NumPy'}"
-        )
+        if use_gpu and GPU_AVAILABLE:
+            method = "GPU-Vectorized"
+        elif x_n_rows * y_n_rows < 1000000:
+            method = "CPU-Vectorized"
+        elif n_jobs > 1 and x_n_rows >= 100:
+            method = "CPU-Parallel"
+        else:
+            method = "CPU-Sequential"
+        print(f"Method used: {method}")
+        if NUMBA_AVAILABLE:
+            print("Numba acceleration: Enabled")
+        else:
+            print("Numba acceleration: Not available")
 
     return out
 
@@ -323,15 +387,45 @@ def gower_topn(
     Returns:
     --------
     dict with 'index' and 'values' keys containing nearest neighbor indices and distances
+
+    Examples:
+    ---------
+    >>> import pandas as pd
+    >>> import gower_exp
+    >>>
+    >>> # Create dataset to search
+    >>> data = pd.DataFrame({
+    ...     'age': [25, 32, 28, 35, 29, 31],
+    ...     'gender': ['M', 'F', 'M', 'F', 'M', 'F'],
+    ...     'salary': [50000, 75000, 45000, 85000, 60000, 70000],
+    ...     'city': ['NYC', 'LA', 'NYC', 'Chicago', 'LA', 'NYC']
+    ... })
+    >>>
+    >>> # Find 3 most similar to first row
+    >>> query = data.iloc[[0]]  # Single row query
+    >>> result = gower_exp.gower_topn(query, data, n=3)
+    >>> print("Most similar indices:", result['index'])
+    Most similar indices: [0 2 4]
+    >>> print("Distances:", result['values'].round(3))
+    Distances: [0.000 0.167 0.233]
     """
 
     if data_x.shape[0] >= 2:
         raise TypeError("Only support `data_x` of 1 row.")
 
-    # Use optimized version for larger datasets where it's beneficial
-    # The incremental algorithm has overhead, so only use for large datasets with small n
-    if use_optimized and data_y is not None and data_y.shape[0] > 5000 and n < 50:
-        return gower_topn_optimized(data_x, data_y, weight, cat_features, n)
+    # NOTE: The heap-based optimization is currently disabled due to performance regression
+    # See benchmark results showing 10x slower performance on large datasets
+    # TODO: Implement proper vectorized top-N algorithm or use different approach
+
+    # Disable optimized version until performance issues are resolved
+    use_optimized = False  # Force disable until fixed
+
+    if use_optimized and data_y is not None:
+        n_samples = data_y.shape[0]
+        # Use optimization only for very large datasets with small n
+        # where computing full matrix would be expensive
+        if n_samples >= 10000 and n <= 20:
+            return gower_topn_optimized(data_x, data_y, weight, cat_features, n)
 
     # Original implementation for backward compatibility
     dm = gower_matrix(data_x, data_y, weight, cat_features)

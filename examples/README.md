@@ -4,9 +4,9 @@ This directory contains comprehensive examples demonstrating the capabilities of
 
 ## 📓 Available Notebooks
 
-### `gower_raisin_similarity.ipynb` - **Comprehensive Agricultural Data Analysis**
+### `bank_marketing_similarity.ipynb` - **Comprehensive Analysis**
 
-A complete tutorial using the UCI Raisin dataset that demonstrates:
+A complete tutorial using the UCI Bank Marketing dataset that demonstrates:
 
 - **Data Loading & Exploration**: Understanding the dataset structure and characteristics
 - **Basic Gower Distance**: Computing distance matrices and understanding results
@@ -54,32 +54,6 @@ pip install gower ucimlrepo pandas numpy matplotlib seaborn plotly scikit-learn 
 
 3. **VS Code**: Open the `.ipynb` file directly in VS Code with the Python extension
 
-## 📊 Dataset Information
-
-The notebook uses the **UCI Raisin Dataset**:
-- **900 samples** of raisin grains from Turkey
-- **7 morphological features** extracted from computer vision
-- **2 varieties**: Kecimen and Besni raisins
-- **Perfect for demonstrating**: Quality control, similarity analysis, and classification
-
-## 🎯 Learning Objectives
-
-After working through the notebook, you'll understand:
-
-1. **When to use Gower distance** vs. other distance metrics
-2. **How to handle mixed-type data** (numerical + categorical)
-3. **Practical applications** in agriculture and food industry
-4. **Performance considerations** and optimization techniques
-5. **Integration with machine learning** workflows
-6. **Real-world implementation** strategies
-
-## 💡 Use Cases Demonstrated
-
-- **Quality Control**: Automated sorting and grading
-- **Anomaly Detection**: Identifying unusual or damaged products
-- **Similarity Search**: Finding products with similar characteristics
-- **Clustering**: Unsupervised product categorization
-- **Missing Data Handling**: Robust analysis without preprocessing
 
 ## 🔧 Customization
 

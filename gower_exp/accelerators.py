@@ -59,7 +59,12 @@ def get_array_module(use_gpu=False):
     return np
 
 
-@jit(nopython=True, parallel=True)
+@jit(
+    "float32[:](float64[:], float64[:], float64[:,:], float64[:,:], float64[:], float64[:], float64, float64[:])",
+    nopython=True,
+    parallel=True,
+    cache=True,
+)
 def gower_get_numba(
     xi_cat,
     xi_num,
@@ -79,25 +84,55 @@ def gower_get_numba(
     for i in prange(n_rows):
         sum_cat = 0.0
         sum_num = 0.0
+        has_nan = False
 
         # Categorical distance calculation
         for j in range(len(xi_cat)):
-            if xi_cat[j] != xj_cat[i, j]:
+            # Handle NaN values: if both are NaN, they are considered equal
+            xi_val = xi_cat[j]
+            xj_val = xj_cat[i, j]
+
+            # Check if both values are NaN
+            both_nan = np.isnan(xi_val) and np.isnan(xj_val)
+
+            # If not both NaN and values are different, add to categorical distance
+            if not both_nan and xi_val != xj_val:
                 sum_cat += feature_weight_cat[j]
 
         # Numerical distance calculation
         for j in range(len(xi_num)):
             if ranges_of_numeric[j] != 0.0:
-                abs_delta = abs(xi_num[j] - xj_num[i, j])
+                xi_val = xi_num[j]
+                xj_val = xj_num[i, j]
+
+                # Handle NaN values: when both values are NaN, distance should be 0
+                both_nan = np.isnan(xi_val) and np.isnan(xj_val)
+
+                if both_nan:
+                    abs_delta = 0.0
+                else:
+                    abs_delta = abs(xi_val - xj_val)
+                    # If abs_delta is NaN (one value is NaN), mark this row as having NaN
+                    if np.isnan(abs_delta):
+                        has_nan = True
+                        break
+
                 sij_num = abs_delta / ranges_of_numeric[j]
                 sum_num += feature_weight_num[j] * sij_num
 
-        result[i] = (sum_cat + sum_num) / feature_weight_sum
+        if has_nan:
+            result[i] = np.nan
+        else:
+            result[i] = (sum_cat + sum_num) / feature_weight_sum
 
     return result
 
 
-@jit(nopython=True)
+@jit(
+    "void(float64[:,:], float64[:], float64[:])",
+    nopython=True,
+    cache=True,
+)
 def compute_ranges_numba(Z_num, num_ranges, num_max):
     """
     Numba-optimized computation of ranges for numerical features.
@@ -129,7 +164,11 @@ def compute_ranges_numba(Z_num, num_ranges, num_max):
             num_ranges[col] = 0.0
 
 
-@jit(nopython=True)
+@jit(
+    "types.Tuple([int32[:], float64[:]])(float64[:], int32)",
+    nopython=True,
+    cache=True,
+)
 def smallest_indices_numba(ary_flat, n):
     """
     Numba-optimized version of smallest_indices.
