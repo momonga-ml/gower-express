@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 🚀 **GPU Acceleration**: CuPy support for massive performance gains on CUDA-enabled GPUs
 - ⚡ **Performance Optimizations**: Numba JIT compilation for faster CPU computations
-- 🔧 **Modern Development Tooling**: 
+- 🔧 **Modern Development Tooling**:
   - uv for fast dependency management and virtual environments
   - ruff for lightning-fast linting and code formatting
 - 🧪 **Enhanced Testing**: Improved test coverage and performance benchmarks
@@ -58,6 +58,6 @@ For the complete history of the original package, see: https://github.com/wwwjk3
 ## Credits
 
 - **Original Author**: [Michael Yan](https://github.com/wwwjk366) - Created the original gower package
-- **Core Algorithm**: [Marcelo Beckmann](https://sourceforge.net/projects/gower-distance-4python/files/) - Wrote the core distance functions  
+- **Core Algorithm**: [Marcelo Beckmann](https://sourceforge.net/projects/gower-distance-4python/files/) - Wrote the core distance functions
 - **Contributors**: Dominic Dall'Osto and other community contributors who improved the original
 - **This Fork**: Enhanced by Momonga ML with GPU acceleration, performance optimizations, and modern tooling

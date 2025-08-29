@@ -9,7 +9,7 @@ This project is a fork of [Michael Yan's original gower package](https://github.
 ## What's New in This Fork
 
 - 🚀 **GPU Acceleration**: CuPy support for massive performance gains on CUDA-enabled GPUs
-- ⚡ **Performance Optimizations**: Numba JIT compilation for faster CPU computations  
+- ⚡ **Performance Optimizations**: Numba JIT compilation for faster CPU computations
 - 🔧 **Modern Tooling**: Updated development workflow with uv and ruff
 - 🧪 **Enhanced Testing**: Improved test coverage and performance benchmarks
 - 🐛 **Bug Fixes**: Resolved issues with negative values and NaN handling
@@ -45,7 +45,7 @@ Our optimized `gower_topn` function provides significant advantages for nearest 
 - Gower-Express: Early stopping + heap optimization
 - **Result**: 1.1-1.6x speedup with drastically reduced memory usage
 
-**Scenario 2: Large Datasets (10K+ samples)** 
+**Scenario 2: Large Datasets (10K+ samples)**
 - Original: Memory-intensive, potential crashes
 - Gower-Express: Memory-efficient algorithm, predictable performance
 - **Result**: Enables processing of datasets that would otherwise fail
@@ -74,14 +74,14 @@ Our optimized `gower_topn` function provides significant advantages for nearest 
 # Quick performance test
 python benchmark/ultimate_benchmark.py
 
-# Comprehensive benchmarks  
+# Comprehensive benchmarks
 python benchmark/benchmark_gower_topn.py
 python benchmark/large_scale_benchmark.py
 ```
 
 ## Introduction
 
-Gower's distance calculation in Python. Gower Distance is a distance measure that can be used to calculate distance between two entity whose attribute has a mixed of categorical and numerical values. [Gower (1971) A general coefficient of similarity and some of its properties. Biometrics 27 857–874.](https://www.jstor.org/stable/2528823?seq=1) 
+Gower's distance calculation in Python. Gower Distance is a distance measure that can be used to calculate distance between two entity whose attribute has a mixed of categorical and numerical values. [Gower (1971) A general coefficient of similarity and some of its properties. Biometrics 27 857–874.](https://www.jstor.org/stable/2528823?seq=1)
 
 ## Credits and Attribution
 
@@ -212,7 +212,7 @@ knn = KNeighborsClassifier(metric=gower_metric, algorithm='brute', n_neighbors=3
 knn.fit(X, y)
 predictions = knn.predict(X_test)
 
-# Use with DBSCAN clustering  
+# Use with DBSCAN clustering
 clustering = DBSCAN(metric=gower_metric, eps=0.3)
 cluster_labels = clustering.fit_predict(X)
 ```
@@ -234,7 +234,7 @@ classifier = make_gower_knn_classifier(
 classifier.fit(X_train, y_train)
 predictions = classifier.predict(X_test)
 
-# Create a k-NN regressor 
+# Create a k-NN regressor
 regressor = make_gower_knn_regressor(
     n_neighbors=3,
     cat_features='auto',  # Auto-detect categorical features (pandas DataFrames)
@@ -331,7 +331,6 @@ Gower distance works with any sklearn algorithm that accepts:
 
 Popular combinations:
 - **Classification**: `KNeighborsClassifier` with Gower distance
-- **Regression**: `KNeighborsRegressor` with Gower distance  
+- **Regression**: `KNeighborsRegressor` with Gower distance
 - **Clustering**: `DBSCAN`, `AgglomerativeClustering` with precomputed Gower distances
 - **Outlier Detection**: `LocalOutlierFactor` with Gower distance
-

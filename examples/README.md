@@ -11,11 +11,11 @@ A complete tutorial using the UCI Raisin dataset that demonstrates:
 - **Data Loading & Exploration**: Understanding the dataset structure and characteristics
 - **Basic Gower Distance**: Computing distance matrices and understanding results
 - **Similarity Analysis**: Finding k-nearest neighbors and analyzing relationships
-- **Practical Applications**: 
+- **Practical Applications**:
   - Anomaly detection for quality control
   - Golden standard matching
   - Missing data robustness
-- **Advanced Features**: 
+- **Advanced Features**:
   - Custom feature weighting
   - Performance benchmarking
   - GPU acceleration (if available)

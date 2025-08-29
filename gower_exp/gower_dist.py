@@ -1,5 +1,6 @@
 import heapq
 import os
+import time
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -139,7 +140,13 @@ def smallest_indices_numba(ary_flat, n):
 
 
 def gower_matrix(
-    data_x, data_y=None, weight=None, cat_features=None, n_jobs=1, use_gpu=False
+    data_x,
+    data_y=None,
+    weight=None,
+    cat_features=None,
+    n_jobs=1,
+    use_gpu=False,
+    verbose=False,
 ):
     """
     Compute the Gower distance matrix between data_x and data_y.
@@ -162,14 +169,39 @@ def gower_matrix(
         For small datasets (<100 samples), sequential processing is used regardless.
     use_gpu : bool, default=False
         Use GPU acceleration if available (requires CuPy)
+    verbose : bool, default=False
+        Verbose logging - will show run times
 
     Returns:
     --------
     ndarray, shape (n_samples, m_samples)
         Gower distance matrix
-    """
 
-    # Get array module for GPU/CPU operations
+    Examples
+    --------
+    >>> import numpy as np
+    >>> X = np.array([[1, 'A'], [2, 'B'], [3, 'A']])
+    >>> cat_features = [False, True]
+    >>> dist_matrix = gower_matrix(X, cat_features=cat_features)
+    >>> print(dist_matrix.shape)
+    (3, 3)
+    """
+    # Validate Inputs
+    if data_x is None or (hasattr(data_x, "__len__") and len(data_x) == 0):
+        raise ValueError("data_x cannot be None or empty")
+
+    if weight is not None:
+        weight = np.asarray(weight)
+        if weight.shape[0] != data_x.shape[1]:
+            raise ValueError(
+                f"Weight dimension {weight.shape[0]} doesn't match feature dimension {data_x.shape[1]}"
+            )
+        if np.any(weight < 0):
+            raise ValueError("Weights must be non-negative")
+
+    if verbose:
+        start_time = time.time()
+
     xp = get_array_module(use_gpu)
 
     # function checks
@@ -263,7 +295,7 @@ def gower_matrix(
 
     # This is to normalize the numeric values between 0 and 1.
     # Ensure Z_num is float to handle division properly
-    Z_num = Z_num.astype(np.float64)
+    Z_num = Z_num.astype(np.float32)
     Z_num = np.divide(Z_num, num_max, out=np.zeros_like(Z_num), where=num_max != 0)
     Z_cat = Z[:, cat_features]
 
@@ -365,6 +397,12 @@ def gower_matrix(
                 y_n_rows,
                 n_jobs,
             )
+
+    if verbose:
+        print(f"Gower matrix computed in {time.time() - start_time:.2f}s")  # type:ignore
+        print(
+            f"Method used: {'GPU' if use_gpu and GPU_AVAILABLE else 'Numba' if NUMBA_AVAILABLE else 'NumPy'}"
+        )
 
     return out
 
@@ -737,8 +775,8 @@ def gower_get(
         # Ensure sij_cat is numeric by using explicit float arrays
         sij_cat = np.where(
             final_equal_mask,
-            np.zeros(xi_cat.shape, dtype=np.float64),
-            np.ones(xi_cat.shape, dtype=np.float64),
+            np.zeros(xi_cat.shape, dtype=np.float32),
+            np.ones(xi_cat.shape, dtype=np.float32),
         )
         sum_cat = np.multiply(feature_weight_cat, sij_cat).sum(axis=1)
     else:
@@ -746,7 +784,7 @@ def gower_get(
         # When xi_cat is empty, the output should match the number of samples in xj
         # Use xj_num to determine the number of samples since it's the main data
         output_shape = xj_num.shape[0] if xj_num.ndim > 1 else 1
-        sum_cat = np.zeros(output_shape, dtype=np.float64)
+        sum_cat = np.zeros(output_shape, dtype=np.float32)
 
     # numerical columns
     abs_delta = np.absolute(xi_num - xj_num)
@@ -1008,13 +1046,11 @@ def _compute_single_distance(
     Compute Gower distance between query and a single row.
     """
 
-    # Categorical distance
     cat_dist = 0.0
     if len(query_cat) > 0:
         cat_diff = (query_cat != row_cat).astype(np.float32)
         cat_dist = np.dot(cat_diff, weight_cat)
 
-    # Numerical distance
     num_dist = 0.0
     if len(query_num) > 0:
         abs_delta = np.abs(query_num - row_num)
@@ -1023,5 +1059,4 @@ def _compute_single_distance(
         )
         num_dist = np.dot(normalized_delta, weight_num)
 
-    # Combined distance
     return (cat_dist + num_dist) / weight_sum
