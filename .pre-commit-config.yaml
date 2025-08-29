@@ -20,6 +20,7 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         name: ruff format
+        exclude: ^examples/
 
   # Bandit for security checks
   - repo: https://github.com/PyCQA/bandit
@@ -39,4 +40,4 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
-        args: [tests/matrix_test.py, tests/test_gower_matrix.py, tests/test_gower_topn.py, --tb=short, -x]# Pre-commit setup completed
+        args: [tests/matrix_test.py, tests/test_gower_matrix.py, tests/test_gower_topn.py, --tb=short, -x]
