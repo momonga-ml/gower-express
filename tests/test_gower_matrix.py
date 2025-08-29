@@ -134,7 +134,7 @@ class TestGowerMatrix:
             gower_exp.gower_matrix(X, use_gpu=True)
             assert mock_gpu_func.called
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", False)
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", False)
     def test_gower_matrix_gpu_fallback(self):
         """Test fallback when GPU is not available"""
         X = np.array([[1.0, 2.0], [3.0, 4.0]])

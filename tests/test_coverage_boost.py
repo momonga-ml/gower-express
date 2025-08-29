@@ -9,7 +9,16 @@ import pandas as pd
 
 sys.path.insert(0, "../gower_exp")
 import gower_exp
-import gower_exp.gower_dist as gd
+from gower_exp.accelerators import (
+    GPU_AVAILABLE,
+    NUMBA_AVAILABLE,
+)
+from gower_exp.topn import (
+    _compute_single_distance,
+    _gower_topn_heap,
+    gower_topn_optimized,
+)
+from gower_exp.vectorized import gower_matrix_vectorized, gower_matrix_vectorized_gpu
 
 
 class TestCoverageBoost:
@@ -18,11 +27,11 @@ class TestCoverageBoost:
     def test_module_level_imports(self):
         """Test module-level constants and imports"""
         # Test that module constants exist
-        assert hasattr(gd, "NUMBA_AVAILABLE")
-        assert hasattr(gd, "GPU_AVAILABLE")
+        assert NUMBA_AVAILABLE is not None
+        assert GPU_AVAILABLE is not None
 
         # Test fallback values
-        assert gd.np is not None
+        assert np is not None
 
     def test_jit_decorator_fallback(self):
         """Test JIT decorator when numba not available"""
@@ -88,8 +97,8 @@ class TestCoverageBoost:
             GPU_AVAILABLE = False  # Would be False if no cuda attribute
             assert GPU_AVAILABLE is False
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.cp")
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
+    @patch("gower_exp.accelerators.cp")
     def test_gpu_exception_during_matrix_computation(self, mock_cp):
         """Test GPU exception handling in matrix computation"""
         # Setup mock to fail during computation
@@ -108,11 +117,11 @@ class TestCoverageBoost:
             result = gower_exp.gower_matrix(X, use_gpu=True)
             assert result.shape == (1, 1)
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_numba_functions_directly(self):
         """Test calling numba functions directly when available"""
         # Test gower_get_numba signature (even if it fails)
-        with patch("gower_exp.gower_dist.gower_get_numba") as mock_func:
+        with patch("gower_exp.accelerators.gower_get_numba") as mock_func:
             mock_func.return_value = np.array([0.5])
 
             # Call with proper arguments
@@ -128,10 +137,10 @@ class TestCoverageBoost:
             )
             assert len(result) == 1
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_compute_ranges_numba_directly(self):
         """Test compute_ranges_numba function"""
-        with patch("gower_exp.gower_dist.compute_ranges_numba") as mock_func:
+        with patch("gower_exp.accelerators.compute_ranges_numba") as mock_func:
             Z_num = np.array([[1.0, 2.0], [3.0, 4.0]])
             num_ranges = np.zeros(2)
             num_max = np.zeros(2)
@@ -139,10 +148,10 @@ class TestCoverageBoost:
             mock_func(Z_num, num_ranges, num_max)
             assert mock_func.called
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_smallest_indices_numba_directly(self):
         """Test smallest_indices_numba function"""
-        with patch("gower_exp.gower_dist.smallest_indices_numba") as mock_func:
+        with patch("gower_exp.accelerators.smallest_indices_numba") as mock_func:
             mock_func.return_value = (np.array([1, 0]), np.array([0.1, 0.2]))
 
             flat_array = np.array([0.2, 0.1, 0.5])
@@ -158,7 +167,7 @@ class TestCoverageBoost:
         Y_cat = np.array([["B"]])
         Y_num = np.array([[2.0]])
 
-        result = gd.gower_matrix_vectorized(
+        result = gower_matrix_vectorized(
             X_cat,
             X_num,
             Y_cat,
@@ -177,7 +186,7 @@ class TestCoverageBoost:
         X_cat = np.array([["A"], ["B"]])
         X_num = np.array([[1.0], [2.0]])
 
-        result = gd.gower_matrix_vectorized(
+        result = gower_matrix_vectorized(
             X_cat,
             X_num,
             X_cat,
@@ -195,7 +204,7 @@ class TestCoverageBoost:
     def test_gower_matrix_vectorized_empty_features(self):
         """Test vectorized with empty feature sets"""
         # No categorical features
-        result = gd.gower_matrix_vectorized(
+        result = gower_matrix_vectorized(
             np.zeros((2, 0)),
             np.array([[1.0], [2.0]]),
             np.zeros((2, 0)),
@@ -209,7 +218,7 @@ class TestCoverageBoost:
         assert result.shape == (2, 2)
 
         # No numerical features
-        result = gd.gower_matrix_vectorized(
+        result = gower_matrix_vectorized(
             np.array([["A"], ["B"]]),
             np.zeros((2, 0)),
             np.array([["C"], ["D"]]),
@@ -222,8 +231,8 @@ class TestCoverageBoost:
         )
         assert result.shape == (2, 2)
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.cp")
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
+    @patch("gower_exp.accelerators.cp")
     def test_vectorized_gpu_directly(self, mock_cp):
         """Test GPU vectorized function directly"""
         # Setup mock CuPy
@@ -241,7 +250,7 @@ class TestCoverageBoost:
         Y_cat = np.array([["B"]])
         Y_num = np.array([[2.0]])
 
-        result = gd.gower_matrix_vectorized_gpu(
+        result = gower_matrix_vectorized_gpu(
             X_cat,
             X_num,
             Y_cat,
@@ -261,7 +270,7 @@ class TestCoverageBoost:
         X = np.array([[1.0, "A"]], dtype=object)
         Y = np.array([[1.1, "A"], [1.2, "B"], [1.3, "A"]], dtype=object)
 
-        result = gd.gower_topn_optimized(X, Y, n=2)
+        result = gower_topn_optimized(X, Y, n=2)
         assert len(result["index"]) == 2
 
     def test_gower_topn_optimized_pandas_input(self):
@@ -269,12 +278,12 @@ class TestCoverageBoost:
         X = pd.DataFrame({"num": [1.0], "cat": ["A"]})
         Y = pd.DataFrame({"num": [1.1, 1.2, 1.3], "cat": ["A", "B", "A"]})
 
-        result = gd.gower_topn_optimized(X, Y, n=2)
+        result = gower_topn_optimized(X, Y, n=2)
         assert len(result["index"]) == 2
 
     def test_parallel_chunk_boundary_conditions(self):
         """Test parallel processing chunk boundaries"""
-        with patch("gower_exp.gower_dist.os.cpu_count", return_value=3):
+        with patch("gower_exp.parallel.os.cpu_count", return_value=3):
             X = np.random.rand(7, 5)  # 7 rows, 3 workers = uneven chunks
             result = gower_exp.gower_matrix(X, n_jobs=-1)
             assert result.shape == (7, 7)
@@ -282,7 +291,7 @@ class TestCoverageBoost:
     def test_heap_algorithm_edge_cases(self):
         """Test heap algorithm edge cases"""
         # Test with n=1
-        result = gd._gower_topn_heap(
+        result = _gower_topn_heap(
             np.array(["A"]),
             np.array([1.0]),
             np.array([["B"]]),
@@ -297,7 +306,7 @@ class TestCoverageBoost:
         assert len(result["index"]) == 1
 
         # Test with empty categorical features but valid data
-        result = gd._gower_topn_heap(
+        result = _gower_topn_heap(
             np.array([]),
             np.array([1.0]),
             np.array([[], []]),  # Shape (2, 0) - 2 rows, 0 categorical features
@@ -314,7 +323,7 @@ class TestCoverageBoost:
     def test_compute_single_distance_edge_cases(self):
         """Test single distance computation edge cases"""
         # All categorical
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             np.array(["A", "B"]),
             np.array([]),
             np.array(["A", "C"]),
@@ -327,7 +336,7 @@ class TestCoverageBoost:
         assert result >= 0
 
         # All numerical
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             np.array([]),
             np.array([1.0, 2.0]),
             np.array([]),
@@ -349,7 +358,7 @@ class TestCoverageBoost:
 
     def test_parallel_single_chunk(self):
         """Test parallel with data that fits in single chunk"""
-        with patch("gower_exp.gower_dist.os.cpu_count", return_value=10):
+        with patch("gower_exp.parallel.os.cpu_count", return_value=10):
             X = np.random.rand(5, 3)  # Only 5 rows, 10 workers
             result = gower_exp.gower_matrix(X, n_jobs=-1)
             assert result.shape == (5, 5)

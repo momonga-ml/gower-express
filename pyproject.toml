@@ -82,6 +82,7 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "W293",  # whitespace getting flagged for docstrings
     "B008",  # do not perform function calls in argument defaults
     "N803",  # argument name should be lowercase (scientific computing uses different conventions)
     "N806",  # variable name should be lowercase (scientific computing uses different conventions)

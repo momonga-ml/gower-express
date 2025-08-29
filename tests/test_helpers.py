@@ -3,28 +3,31 @@ from unittest.mock import patch
 
 import numpy as np
 
-# Import the module to test internal functions
+# Import functions from the new modular structure
 sys.path.insert(0, "../gower_exp")
-import gower_exp.gower_dist as gd
+from gower_exp.accelerators import get_array_module
+from gower_exp.core import gower_get
+from gower_exp.parallel import _compute_chunk, _compute_gower_matrix_parallel
+from gower_exp.topn import _compute_single_distance, _gower_topn_heap, smallest_indices
 
 
 class TestHelperFunctions:
     def test_get_array_module_cpu(self):
         """Test get_array_module returns numpy for CPU"""
-        module = gd.get_array_module(use_gpu=False)
+        module = get_array_module(use_gpu=False)
         assert module is np
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.cp")
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
+    @patch("gower_exp.accelerators.cp")
     def test_get_array_module_gpu(self, mock_cp):
         """Test get_array_module returns cupy for GPU when available"""
-        module = gd.get_array_module(use_gpu=True)
+        module = get_array_module(use_gpu=True)
         assert module is mock_cp
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", False)
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", False)
     def test_get_array_module_gpu_not_available(self):
         """Test get_array_module falls back to numpy when GPU not available"""
-        module = gd.get_array_module(use_gpu=True)
+        module = get_array_module(use_gpu=True)
         assert module is np
 
     def test_gower_get_basic(self):
@@ -40,7 +43,7 @@ class TestHelperFunctions:
         ranges_of_numeric = np.array([1.0, 2.0])
         max_of_numeric = np.array([5.0, 10.0])
 
-        result = gd.gower_get(
+        result = gower_get(
             xi_cat,
             xi_num,
             xj_cat,
@@ -69,7 +72,7 @@ class TestHelperFunctions:
         ranges_of_numeric = np.array([])
         max_of_numeric = np.array([])
 
-        result = gd.gower_get(
+        result = gower_get(
             xi_cat,
             xi_num,
             xj_cat,
@@ -97,7 +100,7 @@ class TestHelperFunctions:
         ranges_of_numeric = np.array([2.0, 3.0, 4.0])
         max_of_numeric = np.array([10.0, 10.0, 10.0])
 
-        result = gd.gower_get(
+        result = gower_get(
             xi_cat,
             xi_num,
             xj_cat,
@@ -125,7 +128,7 @@ class TestHelperFunctions:
         ranges_of_numeric = np.array([0.0, 1.0])  # First range is zero
         max_of_numeric = np.array([5.0, 5.0])
 
-        result = gd.gower_get(
+        result = gower_get(
             xi_cat,
             xi_num,
             xj_cat,
@@ -144,7 +147,7 @@ class TestHelperFunctions:
     def test_smallest_indices_basic(self):
         """Test smallest_indices function"""
         arr = np.array([[5, 2, 8, 1, 9, 3]])
-        result = gd.smallest_indices(arr, 3)
+        result = smallest_indices(arr, 3)
 
         assert "index" in result
         assert "values" in result
@@ -155,7 +158,7 @@ class TestHelperFunctions:
     def test_smallest_indices_with_nan(self):
         """Test smallest_indices with NaN values"""
         arr = np.array([[5, np.nan, 8, 1, 9, 3]])
-        result = gd.smallest_indices(arr, 3)
+        result = smallest_indices(arr, 3)
 
         assert len(result["index"]) == 3
         assert not np.any(np.isnan(result["values"]))
@@ -163,7 +166,7 @@ class TestHelperFunctions:
     def test_smallest_indices_all_same(self):
         """Test smallest_indices when all values are the same"""
         arr = np.array([[5, 5, 5, 5]])
-        result = gd.smallest_indices(arr, 2)
+        result = smallest_indices(arr, 2)
 
         assert len(result["index"]) == 2
         assert result["values"][0] == result["values"][1]
@@ -179,7 +182,7 @@ class TestHelperFunctions:
         weight_sum = 4.0
         num_ranges = np.array([2.0, 3.0])
 
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             query_cat,
             query_num,
             row_cat,
@@ -204,7 +207,7 @@ class TestHelperFunctions:
         weight_sum = 2.0
         num_ranges = np.array([2.0, 3.0])
 
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             query_cat,
             query_num,
             row_cat,
@@ -228,7 +231,7 @@ class TestHelperFunctions:
         weight_sum = 2.0
         num_ranges = np.array([])
 
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             query_cat,
             query_num,
             row_cat,
@@ -254,7 +257,7 @@ class TestHelperFunctions:
         n = 2
         total_rows = 3
 
-        result = gd._gower_topn_heap(
+        result = _gower_topn_heap(
             query_cat,
             query_num,
             data_cat,
@@ -287,7 +290,7 @@ class TestHelperFunctions:
         x_n_rows = 2
         y_n_rows = 3
 
-        result = gd._compute_chunk(
+        result = _compute_chunk(
             0,
             1,
             X_cat,
@@ -321,7 +324,7 @@ class TestHelperFunctions:
         x_n_rows = 4
         y_n_rows = 4
 
-        result = gd._compute_gower_matrix_parallel(
+        result = _compute_gower_matrix_parallel(
             X_cat,
             X_num,
             Y_cat,
@@ -340,7 +343,7 @@ class TestHelperFunctions:
         assert result.shape == (4, 4)
         assert np.all(np.diag(result) == 0) or np.allclose(np.diag(result), 0)
 
-    @patch("gower_exp.gower_dist.os.cpu_count", return_value=4)
+    @patch("gower_exp.parallel.os.cpu_count", return_value=4)
     def test_compute_gower_matrix_parallel_all_cores(self, mock_cpu_count):
         """Test parallel processing with n_jobs=-1"""
         X_cat = np.array([["A"], ["B"]])
@@ -354,7 +357,7 @@ class TestHelperFunctions:
         num_ranges = np.array([1.0])
         num_max = np.array([2.0])
 
-        result = gd._compute_gower_matrix_parallel(
+        result = _compute_gower_matrix_parallel(
             X_cat,
             X_num,
             Y_cat,

@@ -8,7 +8,9 @@ import pandas as pd
 
 sys.path.insert(0, "../gower_exp")
 import gower_exp
-import gower_exp.gower_dist as gd
+from gower_exp.parallel import _compute_chunk
+from gower_exp.topn import _compute_single_distance, _gower_topn_heap, smallest_indices
+from gower_exp.vectorized import gower_matrix_vectorized_gpu
 
 
 class TestAdditionalCoverage:
@@ -37,7 +39,7 @@ class TestAdditionalCoverage:
         num_ranges = np.array([2.0, 2.0])
 
         # Test with numpy as xp (GPU not available)
-        result = gd.gower_matrix_vectorized_gpu(
+        result = gower_matrix_vectorized_gpu(
             X_cat,
             X_num,
             Y_cat,
@@ -64,7 +66,7 @@ class TestAdditionalCoverage:
         weight_sum = 2.0
         num_ranges = np.array([2.0, 2.0])
 
-        result = gd.gower_matrix_vectorized_gpu(
+        result = gower_matrix_vectorized_gpu(
             X_cat,
             X_num,
             Y_cat,
@@ -90,7 +92,7 @@ class TestAdditionalCoverage:
         weight_sum = 2.0
         num_ranges = np.array([])
 
-        result = gd.gower_matrix_vectorized_gpu(
+        result = gower_matrix_vectorized_gpu(
             X_cat,
             X_num,
             Y_cat,
@@ -134,31 +136,29 @@ class TestAdditionalCoverage:
         result = gower_exp.gower_matrix(X)
         assert result.shape == (2, 2)
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.smallest_indices_numba")
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.topn.smallest_indices_numba")
     def test_smallest_indices_numba_used(self, mock_smallest):
         """Test that smallest_indices_numba is called when available"""
         mock_smallest.return_value = (np.array([0, 1]), np.array([0.1, 0.2]))
 
         arr = np.array([[0.5, 0.1, 0.8]])
-        gd.smallest_indices(arr, 2)
+        smallest_indices(arr, 2)
         assert mock_smallest.called
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
-    @patch(
-        "gower_exp.gower_dist.smallest_indices_numba", side_effect=Exception("Error")
-    )
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.topn.smallest_indices_numba", side_effect=Exception("Error"))
     def test_smallest_indices_numba_fallback(self, mock_smallest):
         """Test fallback when smallest_indices_numba fails"""
         arr = np.array([[0.5, 0.1, 0.8]])
-        result = gd.smallest_indices(arr, 2)
+        result = smallest_indices(arr, 2)
         assert len(result["index"]) == 2
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", False)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", False)
     def test_smallest_indices_no_numba(self):
         """Test smallest_indices without Numba"""
         arr = np.array([[0.5, 0.1, 0.8]])
-        result = gd.smallest_indices(arr, 2)
+        result = smallest_indices(arr, 2)
         assert len(result["index"]) == 2
 
     def test_gower_topn_optimized_small_n(self):
@@ -181,7 +181,7 @@ class TestAdditionalCoverage:
         """Test parallel with n_jobs < -1"""
         X = np.random.rand(150, 10)
 
-        with patch("gower_exp.gower_dist.os.cpu_count", return_value=8):
+        with patch("gower_exp.parallel.os.cpu_count", return_value=8):
             result = gower_exp.gower_matrix(X, n_jobs=-3)  # Should use 6 cores
             assert result.shape == (150, 150)
 
@@ -204,7 +204,7 @@ class TestAdditionalCoverage:
         weight_sum = 2.0
         num_ranges = np.array([100.0, 100.0])
 
-        result = gd._gower_topn_heap(
+        result = _gower_topn_heap(
             query_cat,
             query_num,
             data_cat,
@@ -224,8 +224,8 @@ class TestAdditionalCoverage:
         """Test GPU exception handling during computation"""
         X = np.array([[1.0, "A"], [2.0, "B"]], dtype=object)
 
-        with patch("gower_exp.gower_dist.GPU_AVAILABLE", True):
-            with patch("gower_exp.gower_dist.cp") as mock_cp:
+        with patch("gower_exp.accelerators.GPU_AVAILABLE", True):
+            with patch("gower_exp.accelerators.cp") as mock_cp:
                 mock_cp.cuda.is_available.return_value = True
                 mock_cp.asarray.side_effect = Exception("GPU Memory Error")
 
@@ -254,7 +254,7 @@ class TestAdditionalCoverage:
         num_max = np.array([2.0])
 
         # Test symmetric case (X == Y)
-        result = gd._compute_chunk(
+        result = _compute_chunk(
             0,
             1,
             X_cat,
@@ -284,7 +284,7 @@ class TestAdditionalCoverage:
         weight_sum = 2.0
         num_ranges = np.array([0.0, 1.0])  # First range is zero
 
-        result = gd._compute_single_distance(
+        result = _compute_single_distance(
             query_cat,
             query_num,
             row_cat,

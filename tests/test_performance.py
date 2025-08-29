@@ -5,15 +5,18 @@ import numpy as np
 
 sys.path.insert(0, "../gower_exp")
 import gower_exp
-import gower_exp.gower_dist as gd
+from gower_exp.core import gower_get
+from gower_exp.parallel import _compute_chunk
+from gower_exp.topn import _gower_topn_heap, smallest_indices
+from gower_exp.vectorized import gower_matrix_vectorized
 
 
 class TestPerformanceOptimizations:
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_numba_gower_get(self):
         """Test Numba-optimized gower_get function"""
         # Mock the numba function to ensure it's called
-        with patch("gower_exp.gower_dist.gower_get_numba") as mock_numba:
+        with patch("gower_exp.core.gower_get_numba") as mock_numba:
             mock_numba.return_value = np.array([0.5, 0.6])
 
             xi_cat = np.array(["A", "B"])
@@ -27,7 +30,7 @@ class TestPerformanceOptimizations:
             ranges_of_numeric = np.array([1.0, 2.0])
             max_of_numeric = np.array([5.0, 10.0])
 
-            gd.gower_get(
+            gower_get(
                 xi_cat,
                 xi_num,
                 xj_cat,
@@ -42,11 +45,11 @@ class TestPerformanceOptimizations:
 
             assert mock_numba.called
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_numba_gower_get_fallback(self):
         """Test Numba fallback when it fails"""
         with patch(
-            "gower_exp.gower_dist.gower_get_numba", side_effect=Exception("Numba error")
+            "gower_exp.core.gower_get_numba", side_effect=Exception("Numba error")
         ):
             xi_cat = np.array(["A"])
             xi_num = np.array([1.0])
@@ -60,7 +63,7 @@ class TestPerformanceOptimizations:
             max_of_numeric = np.array([5.0])
 
             # Should fall back to numpy implementation
-            result = gd.gower_get(
+            result = gower_get(
                 xi_cat,
                 xi_num,
                 xj_cat,
@@ -75,7 +78,7 @@ class TestPerformanceOptimizations:
 
             assert len(result) == 1
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", False)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", False)
     def test_no_numba_available(self):
         """Test when Numba is not available"""
         # Should use numpy implementation
@@ -90,7 +93,7 @@ class TestPerformanceOptimizations:
         ranges_of_numeric = np.array([1.0])
         max_of_numeric = np.array([5.0])
 
-        result = gd.gower_get(
+        result = gower_get(
             xi_cat,
             xi_num,
             xj_cat,
@@ -105,29 +108,29 @@ class TestPerformanceOptimizations:
 
         assert len(result) == 1
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_compute_ranges_numba(self):
         """Test Numba-optimized compute_ranges function"""
-        with patch("gower_exp.gower_dist.compute_ranges_numba") as mock_compute:
+        with patch("gower_exp.accelerators.compute_ranges_numba") as mock_compute:
             X = np.random.rand(100, 10)
             gower_exp.gower_matrix(X)
 
             # Check that numba version was attempted
             assert mock_compute.called or True  # May not be called if exception
 
-    @patch("gower_exp.gower_dist.NUMBA_AVAILABLE", True)
+    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_smallest_indices_numba(self):
         """Test Numba-optimized smallest_indices"""
-        with patch("gower_exp.gower_dist.smallest_indices_numba") as mock_smallest:
+        with patch("gower_exp.accelerators.smallest_indices_numba") as mock_smallest:
             mock_smallest.return_value = (np.array([0, 1]), np.array([0.1, 0.2]))
 
             arr = np.array([[0.5, 0.1, 0.8, 0.2]])
-            gd.smallest_indices(arr, 2)
+            smallest_indices(arr, 2)
 
             assert mock_smallest.called or True  # May fall back
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.cp")
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
+    @patch("gower_exp.accelerators.cp")
     def test_gpu_matrix_computation(self, mock_cp):
         """Test GPU-accelerated matrix computation"""
         # Setup mock CuPy
@@ -145,12 +148,12 @@ class TestPerformanceOptimizations:
 
         X = np.array([[1.0, "A"], [2.0, "B"]], dtype=object)
 
-        with patch("gower_exp.gower_dist.get_array_module", return_value=mock_cp):
+        with patch("gower_exp.accelerators.get_array_module", return_value=mock_cp):
             result = gower_exp.gower_matrix(X, use_gpu=True)
             assert result is not None
 
-    @patch("gower_exp.gower_dist.GPU_AVAILABLE", True)
-    @patch("gower_exp.gower_dist.cp")
+    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
+    @patch("gower_exp.accelerators.cp")
     def test_gpu_fallback_on_error(self, mock_cp):
         """Test GPU fallback when computation fails"""
         mock_cp.cuda.is_available.return_value = True
@@ -173,7 +176,7 @@ class TestPerformanceOptimizations:
         weight_sum = 4.0
         num_ranges = np.array([2.0, 2.0])
 
-        result = gd.gower_matrix_vectorized(
+        result = gower_matrix_vectorized(
             X_cat,
             X_num,
             Y_cat,
@@ -212,7 +215,7 @@ class TestPerformanceOptimizations:
         num_max = np.array([4.0])
 
         # Test single chunk
-        chunk_result = gd._compute_chunk(
+        chunk_result = _compute_chunk(
             0,
             2,
             X_cat,
@@ -242,7 +245,7 @@ class TestPerformanceOptimizations:
         weight_sum = 4.0
         num_ranges = np.array([1.0, 1.0])
 
-        result = gd._gower_topn_heap(
+        result = _gower_topn_heap(
             query_cat,
             query_num,
             data_cat,
@@ -277,7 +280,7 @@ class TestPerformanceOptimizations:
         # First 3 should be the closest
         assert all(idx < 3 for idx in result["index"])
 
-    @patch("gower_exp.gower_dist.Parallel")
+    @patch("gower_exp.parallel.Parallel")
     def test_parallel_backend_configuration(self, mock_parallel):
         """Test that parallel backend is configured correctly"""
         mock_parallel.return_value.return_value = [np.zeros((50, 100))]
