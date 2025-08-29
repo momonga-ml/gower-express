@@ -16,6 +16,7 @@ from .accelerators import (
     GPU_AVAILABLE,
     NUMBA_AVAILABLE,
     compute_ranges_numba,
+    compute_ranges_numba_parallel,
     cp,
     get_array_module,
 )
@@ -164,7 +165,11 @@ def gower_matrix(
     if not isinstance(Y, np.ndarray):
         Y = np.asarray(Y)
 
-    Z = np.concatenate((X, Y))
+    # Use pre-allocated array for concatenation to reduce memory fragmentation
+    total_rows = x_n_rows + y_n_rows
+    Z = np.empty((total_rows, x_n_cols), dtype=X.dtype)
+    Z[:x_n_rows] = X
+    Z[x_n_rows:] = Y
 
     x_index = range(0, x_n_rows)
     y_index = range(x_n_rows, x_n_rows + y_n_rows)
@@ -175,10 +180,14 @@ def gower_matrix(
     num_ranges = np.zeros(num_cols)
     num_max = np.zeros(num_cols)
 
-    # Use numba-optimized range calculation if available
+    # Use optimized numba range calculation if available
     if NUMBA_AVAILABLE:
         try:
-            compute_ranges_numba(Z_num, num_ranges, num_max)
+            # Use parallel version for larger datasets
+            if Z_num.shape[0] * Z_num.shape[1] > 10000:
+                compute_ranges_numba_parallel(Z_num, num_ranges, num_max)
+            else:
+                compute_ranges_numba(Z_num, num_ranges, num_max)
         except Exception:
             # Fall back to numpy version
             for col in range(num_cols):
@@ -208,9 +217,12 @@ def gower_matrix(
             num_ranges[col] = np.abs(1 - min_val / max_val) if (max_val != 0) else 0.0
 
     # This is to normalize the numeric values between 0 and 1.
-    # Ensure Z_num is float to handle division properly
-    Z_num = Z_num.astype(np.float32)
-    Z_num = np.divide(Z_num, num_max, out=np.zeros_like(Z_num), where=num_max != 0)
+    # In-place conversion and division to reduce memory allocation
+    if Z_num.dtype != np.float32:
+        Z_num = Z_num.astype(np.float32)
+
+    # In-place division where possible to reduce temporary arrays
+    np.divide(Z_num, num_max, out=Z_num, where=num_max != 0)
     Z_cat = Z[:, cat_features]
 
     if weight is None:
@@ -221,7 +233,8 @@ def gower_matrix(
     weight_cat = weight[cat_features]
     weight_num = weight[np.logical_not(cat_features)]
 
-    out = np.zeros((x_n_rows, y_n_rows), dtype=np.float32)
+    # Pre-allocate output array with optimal memory layout (C-contiguous)
+    out = np.zeros((x_n_rows, y_n_rows), dtype=np.float32, order="C")
 
     weight_sum = weight.sum()
 
@@ -413,18 +426,12 @@ def gower_topn(
     if data_x.shape[0] >= 2:
         raise TypeError("Only support `data_x` of 1 row.")
 
-    # NOTE: The heap-based optimization is currently disabled due to performance regression
-    # See benchmark results showing 10x slower performance on large datasets
-    # TODO: Implement proper vectorized top-N algorithm or use different approach
-
-    # Disable optimized version until performance issues are resolved
-    use_optimized = False  # Force disable until fixed
-
+    # Use vectorized optimization for larger datasets where it provides benefits
     if use_optimized and data_y is not None:
         n_samples = data_y.shape[0]
-        # Use optimization only for very large datasets with small n
-        # where computing full matrix would be expensive
-        if n_samples >= 10000 and n <= 20:
+        # Use optimization primarily for medium-large datasets with small n
+        # where computing full matrix is wasteful but overhead is justified
+        if n_samples >= 2000 and n_samples <= 20000 and n <= 50:
             return gower_topn_optimized(data_x, data_y, weight, cat_features, n)
 
     # Original implementation for backward compatibility

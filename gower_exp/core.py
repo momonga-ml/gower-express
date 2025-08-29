@@ -15,7 +15,12 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-from .accelerators import NUMBA_AVAILABLE, gower_get_numba  # noqa: E402
+from .accelerators import (  # noqa: E402
+    NUMBA_AVAILABLE,
+    gower_get_numba_categorical_only,
+    gower_get_numba_mixed_optimized,
+    gower_get_numba_numerical_only,
+)
 
 
 def gower_get(
@@ -64,77 +69,115 @@ def gower_get(
     --------
     ndarray : Array of distances from query point to each target point
     """
-    # Use numba-optimized version if available and arrays are compatible
-    # Don't use numba for empty categorical arrays as it doesn't handle them properly
-    if NUMBA_AVAILABLE and xi_cat.ndim == 1 and xj_cat.ndim == 2 and len(xi_cat) > 0:
+    # Use optimized numba-based kernel selection when available
+    if NUMBA_AVAILABLE and xi_cat.ndim == 1 and xj_cat.ndim == 2:
         try:
-            return gower_get_numba(
-                xi_cat,
-                xi_num,
-                xj_cat,
-                xj_num,
-                feature_weight_cat,
-                feature_weight_num,
-                feature_weight_sum,
-                ranges_of_numeric,
-            )
+            # Auto-detect optimal kernel based on data characteristics
+            has_categorical = len(xi_cat) > 0
+            has_numerical = len(xi_num) > 0
+
+            if has_categorical and has_numerical:
+                # Mixed data - use optimized mixed kernel
+                return gower_get_numba_mixed_optimized(
+                    xi_cat,
+                    xi_num,
+                    xj_cat,
+                    xj_num,
+                    feature_weight_cat,
+                    feature_weight_num,
+                    feature_weight_sum,
+                    ranges_of_numeric,
+                )
+            elif has_numerical and not has_categorical:
+                # Pure numerical data - use specialized numerical kernel
+                return gower_get_numba_numerical_only(
+                    xi_num,
+                    xj_num,
+                    feature_weight_num,
+                    ranges_of_numeric,
+                )
+            elif has_categorical and not has_numerical:
+                # Pure categorical data - use specialized categorical kernel
+                return gower_get_numba_categorical_only(
+                    xi_cat,
+                    xj_cat,
+                    feature_weight_cat,
+                )
+            # If no features, fall through to numpy version
+
         except Exception as e:
             # Fall back to numpy version if numba fails
             logger.debug("Numba optimization failed, using numpy fallback: %s", str(e))
 
     # Original numpy implementation as fallback
-    # categorical columns
+    # categorical columns - optimized to reduce temporary arrays
     if len(xi_cat) > 0:
-        # Handle categorical comparison including NaN values
-        # For string/object arrays, NaN comparisons work differently
-        equal_mask = xi_cat == xj_cat
+        # Pre-allocate output shape
+        output_shape = xj_cat.shape[0] if xj_cat.ndim > 1 else 1
+        sum_cat = np.zeros(output_shape, dtype=np.float32)
 
-        # Handle cases where both are NaN (np.nan == np.nan is False, but both being NaN should be equal)
-        # Use a try-catch approach since xi_cat might contain mixed types
-        try:
-            both_nan_mask = np.isnan(xi_cat.astype(float)) & np.isnan(
-                xj_cat.astype(float)
+        # Process each feature to avoid large intermediate arrays
+        for feat_idx in range(len(xi_cat)):
+            xi_val = xi_cat[feat_idx]
+            xj_vals = (
+                xj_cat[:, feat_idx]
+                if xj_cat.ndim > 1
+                else xj_cat[feat_idx : feat_idx + 1]
             )
-        except (ValueError, TypeError):
-            # If can't convert to float, assume no NaN values in categorical data
-            both_nan_mask = np.zeros_like(equal_mask, dtype=bool)
-        final_equal_mask = equal_mask | both_nan_mask
 
-        # Ensure sij_cat is numeric by using explicit float arrays
-        sij_cat = np.where(
-            final_equal_mask,
-            np.zeros(xi_cat.shape, dtype=np.float32),
-            np.ones(xi_cat.shape, dtype=np.float32),
-        )
-        sum_cat = np.multiply(feature_weight_cat, sij_cat).sum(axis=1)
+            # Handle categorical comparison including NaN values
+            equal_mask = xi_val == xj_vals
+
+            # Handle cases where both are NaN
+            try:
+                both_nan_mask = np.isnan(float(xi_val)) & np.isnan(
+                    xj_vals.astype(float)
+                )
+                final_equal_mask = equal_mask | both_nan_mask
+            except (ValueError, TypeError):
+                # If can't convert to float, use direct equality
+                final_equal_mask = equal_mask
+
+            # Add weighted contribution directly to sum_cat (in-place)
+            weight = feature_weight_cat[feat_idx]
+            sum_cat += np.where(final_equal_mask, 0.0, weight)
     else:
         # Handle empty categorical arrays - return zeros with correct shape
-        # When xi_cat is empty, the output should match the number of samples in xj
-        # Use xj_num to determine the number of samples since it's the main data
         output_shape = xj_num.shape[0] if xj_num.ndim > 1 else 1
         sum_cat = np.zeros(output_shape, dtype=np.float32)
 
-    # numerical columns
+    # numerical columns - optimized to reduce temporary arrays
     if len(xi_num) > 0:
-        abs_delta = np.absolute(xi_num - xj_num)
+        output_shape = sum_cat.shape[0]
+        sum_num = np.zeros(output_shape, dtype=np.float32)
 
-        # Handle NaN values properly: when both values are NaN, distance should be 0
-        both_nan = np.isnan(xi_num) & np.isnan(xj_num)
-        abs_delta = np.where(both_nan, 0.0, abs_delta)
+        # Process numerical features with minimal temporary array creation
+        for feat_idx in range(len(xi_num)):
+            xi_val = xi_num[feat_idx]
+            xj_vals = (
+                xj_num[:, feat_idx]
+                if xj_num.ndim > 1
+                else xj_num[feat_idx : feat_idx + 1]
+            )
+            range_val = ranges_of_numeric[feat_idx]
+            weight = feature_weight_num[feat_idx]
 
-        sij_num = np.divide(
-            abs_delta,
-            ranges_of_numeric,
-            out=np.zeros_like(abs_delta),
-            where=ranges_of_numeric != 0,
-        )
+            if range_val != 0:
+                # Compute absolute difference
+                abs_delta = np.abs(xi_val - xj_vals)
 
-        sum_num = np.multiply(feature_weight_num, sij_num).sum(axis=1)
+                # Handle NaN values: when both values are NaN, distance should be 0
+                both_nan_mask = np.isnan(xi_val) & np.isnan(xj_vals)
+                abs_delta = np.where(both_nan_mask, 0.0, abs_delta)
+
+                # Normalize and add weighted contribution directly to sum_num
+                normalized_delta = abs_delta / range_val
+                sum_num += weight * normalized_delta
     else:
         # Handle empty numerical arrays - return zeros with correct shape
-        # Use sum_cat shape to match the output
         sum_num = np.zeros_like(sum_cat, dtype=np.float32)
-    sums = np.add(sum_cat, sum_num)
-    sum_sij = np.divide(sums, feature_weight_sum)
+    # Final computation - in-place addition and division to minimize allocations
+    sum_cat += sum_num  # In-place addition
+    sum_cat /= feature_weight_sum  # In-place division
 
-    return sum_sij
+    return sum_cat

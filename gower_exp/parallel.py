@@ -78,11 +78,16 @@ def _compute_gower_matrix_parallel(
         for start_idx, end_idx in row_chunks
     )
 
-    # Aggregate results into the final output matrix
-    out = np.zeros((x_n_rows, y_n_rows), dtype=np.float32)
+    # Pre-allocate output matrix with optimal memory layout
+    out = np.zeros((x_n_rows, y_n_rows), dtype=np.float32, order="C")
 
+    # Aggregate results with memory-efficient copying
     for (start_idx, end_idx), chunk_result in zip(row_chunks, results):
+        # Use direct assignment for memory efficiency
+        chunk_size = end_idx - start_idx
         out[start_idx:end_idx, :] = chunk_result
+        # Clear reference to chunk result to free memory earlier
+        del chunk_result
 
     # Handle symmetric matrix case - fill lower triangle
     if is_symmetric:
@@ -125,8 +130,11 @@ def _compute_chunk(
     from .core import gower_get
 
     chunk_size = end_idx - start_idx
-    chunk_out = np.zeros((chunk_size, y_n_rows), dtype=np.float32)
 
+    # Pre-allocate chunk output with optimal memory layout
+    chunk_out = np.zeros((chunk_size, y_n_rows), dtype=np.float32, order="C")
+
+    # Process rows with memory-conscious approach
     for i in range(chunk_size):
         row_idx = start_idx + i
 
@@ -134,11 +142,15 @@ def _compute_chunk(
             # Symmetric case: only compute upper triangle (including diagonal)
             j_start = row_idx
             if j_start < y_n_rows:
+                # Create views instead of copies where possible
+                Y_cat_slice = Y_cat[j_start:y_n_rows, :]
+                Y_num_slice = Y_num[j_start:y_n_rows, :]
+
                 res = gower_get(
                     X_cat[row_idx, :],
                     X_num[row_idx, :],
-                    Y_cat[j_start:y_n_rows, :],
-                    Y_num[j_start:y_n_rows, :],
+                    Y_cat_slice,
+                    Y_num_slice,
                     weight_cat,
                     weight_num,
                     weight_sum,
@@ -147,6 +159,8 @@ def _compute_chunk(
                     num_max,
                 )
                 chunk_out[i, j_start:] = res
+                # Clear references to slices
+                del Y_cat_slice, Y_num_slice, res
         else:
             # Non-symmetric case: compute full row
             res = gower_get(
@@ -162,5 +176,7 @@ def _compute_chunk(
                 num_max,
             )
             chunk_out[i, :] = res
+            # Clear reference to result
+            del res
 
     return chunk_out

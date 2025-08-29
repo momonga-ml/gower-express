@@ -15,19 +15,20 @@ class TestPerformanceOptimizations:
     @patch("gower_exp.accelerators.NUMBA_AVAILABLE", True)
     def test_numba_gower_get(self):
         """Test Numba-optimized gower_get function"""
-        # Mock the numba function to ensure it's called
-        with patch("gower_exp.core.gower_get_numba") as mock_numba:
+        # Use numeric categorical data that numba can handle
+        with patch("gower_exp.core.gower_get_numba_mixed_optimized") as mock_numba:
             mock_numba.return_value = np.array([0.5, 0.6])
 
-            xi_cat = np.array(["A", "B"])
-            xi_num = np.array([1.0, 2.0])
-            xj_cat = np.array([["A", "C"], ["B", "B"]])
-            xj_num = np.array([[1.5, 2.5], [2.0, 3.0]])
-            feature_weight_cat = np.array([1.0, 1.0])
-            feature_weight_num = np.array([1.0, 1.0])
+            # Use numeric categorical data instead of strings
+            xi_cat = np.array([1.0, 2.0], dtype=np.float64)
+            xi_num = np.array([1.0, 2.0], dtype=np.float64)
+            xj_cat = np.array([[1.0, 3.0], [2.0, 2.0]], dtype=np.float64)
+            xj_num = np.array([[1.5, 2.5], [2.0, 3.0]], dtype=np.float64)
+            feature_weight_cat = np.array([1.0, 1.0], dtype=np.float64)
+            feature_weight_num = np.array([1.0, 1.0], dtype=np.float64)
             feature_weight_sum = 4.0
             categorical_features = np.array([True, True, False, False])
-            ranges_of_numeric = np.array([1.0, 2.0])
+            ranges_of_numeric = np.array([1.0, 2.0], dtype=np.float64)
             max_of_numeric = np.array([5.0, 10.0])
 
             gower_get(
@@ -49,7 +50,8 @@ class TestPerformanceOptimizations:
     def test_numba_gower_get_fallback(self):
         """Test Numba fallback when it fails"""
         with patch(
-            "gower_exp.core.gower_get_numba", side_effect=Exception("Numba error")
+            "gower_exp.core.gower_get_numba_mixed_optimized",
+            side_effect=Exception("Numba error"),
         ):
             xi_cat = np.array(["A"])
             xi_num = np.array([1.0])

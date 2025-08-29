@@ -5,21 +5,24 @@ This module implements efficient algorithms for top-N search that avoid computin
 the full distance matrix when only the nearest neighbors are needed.
 """
 
-import heapq
 import logging
 
 __all__ = [
     "smallest_indices",
     "gower_topn_optimized",
     "_gower_topn_heap",
-    "_compute_single_distance",
+    "_compute_batch_distances_vectorized",
 ]
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from .accelerators import NUMBA_AVAILABLE, smallest_indices_numba  # noqa: E402
+from .accelerators import (  # noqa: E402
+    NUMBA_AVAILABLE,
+    smallest_indices_numba,
+    smallest_indices_numba_heap,
+)
 
 
 def smallest_indices(ary, n):
@@ -33,11 +36,18 @@ def smallest_indices(ary, n):
         values = flat[indices]
         return {"index": indices, "values": values}
 
-    # Try numba version first
+    # Try optimized numba version first
     if NUMBA_AVAILABLE:
         try:
-            flat_copy = flat.copy()
-            indices, values = smallest_indices_numba(flat_copy, n)
+            flat_copy = flat.copy().astype(np.float32)
+            # Use heap-based algorithm for better performance on larger arrays
+            if len(flat_copy) > 100:
+                indices, values = smallest_indices_numba_heap(flat_copy, n)
+            else:
+                indices, values = smallest_indices_numba(
+                    flat_copy.astype(np.float64), n
+                )
+                values = values.astype(np.float32)
             return {"index": indices, "values": values}
         except Exception as e:
             # Fall back to numpy version
@@ -162,66 +172,61 @@ def _gower_topn_heap(
     total_rows,
 ):
     """
-    Simplified heap-based top-N computation.
-    Focus on reducing computational overhead rather than complex early stopping.
+    Vectorized top-N computation using batch processing and argpartition.
+    Much faster than heap-based row-by-row approach.
     """
 
     n_actual = min(n, total_rows)
-    heap = []
 
-    # For very large datasets, use vectorized computation in chunks
-    if total_rows > 5000:
-        # Process in chunks to avoid memory issues but maintain speed
-        chunk_size = 1000
-
-        for start_idx in range(0, total_rows, chunk_size):
-            end_idx = min(start_idx + chunk_size, total_rows)
-
-            # Vectorized distance computation for chunk
-            chunk_distances = _compute_chunk_distances(
-                query_cat,
-                query_num,
-                data_cat[start_idx:end_idx],
-                data_num[start_idx:end_idx],
-                weight_cat,
-                weight_num,
-                weight_sum,
-                num_ranges,
-            )
-
-            # Process chunk results
-            for i, dist in enumerate(chunk_distances):
-                actual_idx = start_idx + i
-
-                if len(heap) < n_actual:
-                    heapq.heappush(heap, (-dist, actual_idx))
-                elif dist < -heap[0][0]:
-                    heapq.heapreplace(heap, (-dist, actual_idx))
+    # Determine optimal batch size based on dataset size and memory constraints
+    # For most cases, larger batches are better to amortize overhead
+    if total_rows <= 5000:
+        batch_size = total_rows  # Process all at once for moderate datasets
+    elif total_rows <= 15000:
+        batch_size = 5000  # Larger batches for efficiency
     else:
-        # For smaller datasets, use simple row-by-row with optimized computation
-        for i in range(total_rows):
-            dist = _compute_single_distance_cached(
-                query_cat,
-                query_num,
-                data_cat[i, :] if data_cat.ndim > 1 else data_cat,
-                data_num[i, :] if data_num.ndim > 1 else data_num,
-                weight_cat,
-                weight_num,
-                weight_sum,
-                num_ranges,
-            )
+        batch_size = 10000  # Very large batches for very large datasets
 
-            if len(heap) < n_actual:
-                heapq.heappush(heap, (-dist, i))
-            elif dist < -heap[0][0]:
-                heapq.heapreplace(heap, (-dist, i))
+    all_distances = []
+    all_indices = []
 
-    # Extract results from heap
-    results = sorted(heap, key=lambda x: -x[0])
-    indices = np.array([idx for _, idx in results], dtype=np.int32)
-    distances = np.array([-dist for dist, _ in results], dtype=np.float32)
+    # Process in batches using vectorized operations
+    for start_idx in range(0, total_rows, batch_size):
+        end_idx = min(start_idx + batch_size, total_rows)
 
-    return {"index": indices, "values": distances}
+        # Vectorized distance computation for entire batch
+        batch_distances = _compute_batch_distances_vectorized(
+            query_cat,
+            query_num,
+            data_cat[start_idx:end_idx] if data_cat.ndim > 1 else data_cat,
+            data_num[start_idx:end_idx] if data_num.ndim > 1 else data_num,
+            weight_cat,
+            weight_num,
+            weight_sum,
+            num_ranges,
+        )
+
+        all_distances.extend(batch_distances)
+        all_indices.extend(range(start_idx, end_idx))
+
+    # Convert to numpy arrays for efficient processing
+    distances = np.array(all_distances, dtype=np.float32)
+    indices = np.array(all_indices, dtype=np.int32)
+
+    # Use argpartition for efficient top-N selection (O(n) instead of O(n log n))
+    if n_actual >= len(distances):
+        # If n is larger than data, return everything sorted
+        sorted_idx = np.argsort(distances)
+    else:
+        # Use argpartition to find n smallest distances efficiently
+        partitioned_idx = np.argpartition(distances, n_actual)[:n_actual]
+        # Sort only the top-n results
+        sorted_idx = partitioned_idx[np.argsort(distances[partitioned_idx])]
+
+    result_indices = indices[sorted_idx]
+    result_distances = distances[sorted_idx]
+
+    return {"index": result_indices, "values": result_distances}
 
 
 def _compute_single_distance(
@@ -294,41 +299,87 @@ def _compute_single_distance_cached(
     return total_dist / weight_sum
 
 
-def _compute_chunk_distances(
+def _compute_batch_distances_vectorized(
     query_cat,
     query_num,
-    chunk_data_cat,
-    chunk_data_num,
+    batch_data_cat,
+    batch_data_num,
     weight_cat,
     weight_num,
     weight_sum,
     num_ranges,
 ):
     """
-    Vectorized computation of distances for a chunk of data.
+    Fully vectorized computation of distances for a batch of data.
+    Uses broadcast operations for maximum efficiency.
     """
-    chunk_size = chunk_data_cat.shape[0] if chunk_data_cat.ndim > 1 else 1
-    distances = np.zeros(chunk_size, dtype=np.float32)
 
-    for i in range(chunk_size):
-        # Extract row data
-        if chunk_data_cat.ndim > 1:
-            row_cat = chunk_data_cat[i, :]
-            row_num = chunk_data_num[i, :]
-        else:
-            row_cat = chunk_data_cat
-            row_num = chunk_data_num
+    # Handle single row case and ensure proper array structure
+    if batch_data_cat.ndim == 1:
+        batch_data_cat = batch_data_cat.reshape(1, -1)
+    if batch_data_num.ndim == 1:
+        batch_data_num = batch_data_num.reshape(1, -1)
 
-        # Use the cached distance computation
-        distances[i] = _compute_single_distance_cached(
-            query_cat,
-            query_num,
-            row_cat,
-            row_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            num_ranges,
-        )
+    batch_size = batch_data_cat.shape[0]
+    total_distances = np.zeros(batch_size, dtype=np.float32)
 
-    return distances
+    # Categorical distance computation (vectorized)
+    if len(query_cat) > 0 and len(weight_cat) > 0 and batch_data_cat.shape[1] > 0:
+        try:
+            # Ensure categorical data is properly handled
+            query_cat_broadcast = np.asarray(query_cat)
+            batch_data_cat_array = np.asarray(batch_data_cat)
+
+            # Broadcast comparison: (batch_size, n_cat_features) != (n_cat_features,)
+            cat_mismatches = batch_data_cat_array != query_cat_broadcast[np.newaxis, :]
+            # Sum weighted mismatches for each row
+            cat_distances = np.dot(
+                cat_mismatches.astype(np.float32), weight_cat.astype(np.float32)
+            )
+            total_distances += cat_distances.astype(np.float32)
+        except Exception:
+            # Fall back to row-by-row for categorical if vectorized fails
+            for i in range(batch_size):
+                cat_diff = (batch_data_cat[i] != query_cat).astype(np.float32)
+                cat_dist = np.dot(cat_diff, weight_cat.astype(np.float32))
+                total_distances[i] += cat_dist
+
+    # Numerical distance computation (vectorized)
+    if len(query_num) > 0 and len(weight_num) > 0 and batch_data_num.shape[1] > 0:
+        # Only process features with non-zero ranges to avoid division by zero
+        valid_ranges_mask = num_ranges != 0
+
+        if np.any(valid_ranges_mask):
+            try:
+                # Extract valid features and ensure float types
+                valid_query_num = query_num[valid_ranges_mask].astype(np.float32)
+                valid_batch_num = batch_data_num[:, valid_ranges_mask].astype(
+                    np.float32
+                )
+                valid_weight_num = weight_num[valid_ranges_mask].astype(np.float32)
+                valid_num_ranges = num_ranges[valid_ranges_mask].astype(np.float32)
+
+                # Broadcast absolute difference: (batch_size, n_num_features) - (n_num_features,)
+                abs_deltas = np.abs(valid_batch_num - valid_query_num[np.newaxis, :])
+
+                # Normalize by ranges: (batch_size, n_num_features) / (n_num_features,)
+                normalized_deltas = abs_deltas / valid_num_ranges[np.newaxis, :]
+
+                # Weight and sum for each row: (batch_size,)
+                num_distances = np.dot(normalized_deltas, valid_weight_num)
+                total_distances += num_distances.astype(np.float32)
+            except Exception:
+                # Fall back to row-by-row for numerical if vectorized fails
+                for i in range(batch_size):
+                    valid_query = query_num[valid_ranges_mask].astype(np.float32)
+                    valid_row = batch_data_num[i, valid_ranges_mask].astype(np.float32)
+                    valid_weight = weight_num[valid_ranges_mask].astype(np.float32)
+                    valid_ranges = num_ranges[valid_ranges_mask].astype(np.float32)
+
+                    abs_delta = np.abs(valid_row - valid_query)
+                    normalized_delta = abs_delta / valid_ranges
+                    num_dist = np.dot(normalized_delta, valid_weight)
+                    total_distances[i] += num_dist
+
+    # Normalize by total weight
+    return (total_distances / weight_sum).astype(np.float32)

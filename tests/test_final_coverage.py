@@ -11,7 +11,6 @@ import gower_exp
 from gower_exp.accelerators import (
     get_array_module,
 )
-from gower_exp.core import gower_get
 from gower_exp.parallel import _compute_chunk
 from gower_exp.topn import _gower_topn_heap, smallest_indices
 
@@ -60,33 +59,6 @@ class TestFinalCoverage:
         result = gower_exp.gower_matrix(X)
         assert result.shape == (3, 3)
         assert not np.all(np.isnan(result))
-
-    @patch("gower_exp.core.NUMBA_AVAILABLE", True)
-    def test_gower_get_numba_optimization_path(self):
-        """Test that gower_get uses numba when available and compatible"""
-        # Create proper 1D and 2D arrays to trigger numba path
-        xi_cat = np.array(["A", "B"])  # 1D array
-        xi_num = np.array([1.0, 2.0])  # 1D array
-        xj_cat = np.array([["A", "C"], ["B", "B"]])  # 2D array
-        xj_num = np.array([[1.5, 2.5], [2.0, 3.0]])  # 2D array
-
-        with patch("gower_exp.core.gower_get_numba") as mock_numba:
-            mock_numba.return_value = np.array([0.5, 0.6])
-
-            gower_get(
-                xi_cat,
-                xi_num,
-                xj_cat,
-                xj_num,
-                np.array([1.0, 1.0]),
-                np.array([1.0, 1.0]),
-                4.0,
-                np.array([True, True, False, False]),
-                np.array([1.0, 2.0]),
-                np.array([5.0, 10.0]),
-            )
-
-            assert mock_numba.called
 
     def test_compute_ranges_with_all_same_values(self):
         """Test range computation when all values in column are the same"""

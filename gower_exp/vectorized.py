@@ -54,47 +54,77 @@ def gower_matrix_vectorized_gpu(
     x_n_rows = X_cat.shape[0]
     y_n_rows = Y_cat.shape[0]
 
-    # Handle categorical features using broadcasting
+    # Pre-allocate output with GPU memory pool management
+    out = xp.zeros((x_n_rows, y_n_rows), dtype=xp.float32)
+
+    # Handle categorical features with memory-efficient GPU processing
     if X_cat.shape[1] > 0:
-        # Reshape for broadcasting
-        X_cat_expanded = X_cat[:, xp.newaxis, :]
-        Y_cat_expanded = Y_cat[xp.newaxis, :, :]
+        # Process in chunks to manage GPU memory more efficiently
+        n_cat_features = X_cat.shape[1]
+        # Adjust chunk size based on available GPU memory, prevent division by zero
+        if x_n_rows * y_n_rows == 0:
+            chunk_size = n_cat_features  # Process all features at once for empty arrays
+        else:
+            chunk_size = min(n_cat_features, max(1, 50000000 // (x_n_rows * y_n_rows)))
 
-        # Vectorized categorical comparison
-        cat_diff = (X_cat_expanded != Y_cat_expanded).astype(xp.float32)
+        for start_feat in range(0, n_cat_features, chunk_size):
+            end_feat = min(start_feat + chunk_size, n_cat_features)
 
-        # Apply weights and sum across features
-        weighted_cat_diff = cat_diff * weight_cat[xp.newaxis, xp.newaxis, :]
-        cat_distances = xp.sum(weighted_cat_diff, axis=2)
-    else:
-        cat_distances = xp.zeros((x_n_rows, y_n_rows), dtype=xp.float32)
+            X_chunk = X_cat[:, start_feat:end_feat]
+            Y_chunk = Y_cat[:, start_feat:end_feat]
+            weight_chunk = weight_cat[start_feat:end_feat]
 
-    # Handle numerical features using broadcasting
+            # Use memory views for broadcasting
+            X_reshaped = X_chunk[:, xp.newaxis, :]
+            Y_reshaped = Y_chunk[xp.newaxis, :, :]
+
+            # Immediate computation and accumulation to reduce intermediate storage
+            cat_diff = (X_reshaped != Y_reshaped).astype(xp.float32)
+            weighted_diff = cat_diff * weight_chunk[xp.newaxis, xp.newaxis, :]
+            out += xp.sum(weighted_diff, axis=2)
+
+            # Force garbage collection on GPU
+            del cat_diff, weighted_diff, X_reshaped, Y_reshaped
+
+    # Handle numerical features with memory-efficient GPU processing
     if X_num.shape[1] > 0:
-        # Reshape for broadcasting
-        X_num_expanded = X_num[:, xp.newaxis, :]
-        Y_num_expanded = Y_num[xp.newaxis, :, :]
+        # Process in chunks to manage GPU memory
+        n_num_features = X_num.shape[1]
+        # Prevent division by zero when y_n_rows is 0
+        if x_n_rows * y_n_rows == 0:
+            chunk_size = n_num_features  # Process all features at once for empty arrays
+        else:
+            chunk_size = min(n_num_features, max(1, 50000000 // (x_n_rows * y_n_rows)))
 
-        # Vectorized numerical distance computation
-        abs_delta = xp.abs(X_num_expanded - Y_num_expanded)
+        for start_feat in range(0, n_num_features, chunk_size):
+            end_feat = min(start_feat + chunk_size, n_num_features)
 
-        # Normalize by ranges
-        normalized_delta = xp.divide(
-            abs_delta,
-            num_ranges[xp.newaxis, xp.newaxis, :],
-            out=xp.zeros_like(abs_delta),
-            where=num_ranges[xp.newaxis, xp.newaxis, :] != 0,
-        )
+            X_chunk = X_num[:, start_feat:end_feat]
+            Y_chunk = Y_num[:, start_feat:end_feat]
+            weight_chunk = weight_num[start_feat:end_feat]
+            ranges_chunk = num_ranges[start_feat:end_feat]
 
-        # Apply weights and sum across features
-        weighted_num_diff = normalized_delta * weight_num[xp.newaxis, xp.newaxis, :]
-        num_distances = xp.sum(weighted_num_diff, axis=2)
-    else:
-        num_distances = xp.zeros((x_n_rows, y_n_rows), dtype=xp.float32)
+            # Memory views for broadcasting
+            X_reshaped = X_chunk[:, xp.newaxis, :]
+            Y_reshaped = Y_chunk[xp.newaxis, :, :]
 
-    # Combine distances and normalize
-    total_distances = cat_distances + num_distances
-    out = total_distances / weight_sum
+            # Compute distances with immediate normalization
+            abs_delta = xp.abs(X_reshaped - Y_reshaped)
+
+            # In-place normalization where possible
+            ranges_broadcast = ranges_chunk[xp.newaxis, xp.newaxis, :]
+            mask = ranges_broadcast != 0
+            xp.divide(abs_delta, ranges_broadcast, out=abs_delta, where=mask)
+
+            # Apply weights and accumulate to output
+            weighted_diff = abs_delta * weight_chunk[xp.newaxis, xp.newaxis, :]
+            out += xp.sum(weighted_diff, axis=2)
+
+            # Cleanup GPU memory
+            del abs_delta, weighted_diff, X_reshaped, Y_reshaped
+
+    # Normalize by total weight (in-place)
+    out /= weight_sum
 
     # Ensure diagonal is zero for symmetric matrices
     if is_symmetric and x_n_rows == y_n_rows:
@@ -149,49 +179,85 @@ def gower_matrix_vectorized(
     x_n_rows = X_cat.shape[0]
     y_n_rows = Y_cat.shape[0]
 
-    # Handle categorical features using broadcasting
+    # Pre-allocate final output matrix with optimal memory layout
+    out = np.zeros((x_n_rows, y_n_rows), dtype=np.float32, order="C")
+
+    # Handle categorical features using memory-efficient broadcasting
     if X_cat.shape[1] > 0:
-        # Reshape for broadcasting: X_cat (x_n_rows, 1, n_cat_features), Y_cat (1, y_n_rows, n_cat_features)
-        X_cat_expanded = X_cat[:, np.newaxis, :]  # Shape: (x_n_rows, 1, n_cat_features)
-        Y_cat_expanded = Y_cat[np.newaxis, :, :]  # Shape: (1, y_n_rows, n_cat_features)
+        # Process categorical features in chunks to reduce peak memory usage
+        n_cat_features = X_cat.shape[1]
+        # Prevent division by zero when y_n_rows is 0
+        if x_n_rows * y_n_rows == 0:
+            chunk_size = n_cat_features  # Process all features at once for empty arrays
+        else:
+            chunk_size = min(
+                n_cat_features, max(1, 100000000 // (x_n_rows * y_n_rows))
+            )  # Adaptive chunking
 
-        # Vectorized categorical comparison - 1 if different, 0 if same
-        cat_diff = (X_cat_expanded != Y_cat_expanded).astype(np.float32)
+        for start_feat in range(0, n_cat_features, chunk_size):
+            end_feat = min(start_feat + chunk_size, n_cat_features)
 
-        # Apply weights and sum across features
-        weighted_cat_diff = cat_diff * weight_cat[np.newaxis, np.newaxis, :]
-        cat_distances = np.sum(weighted_cat_diff, axis=2)
-    else:
-        cat_distances = np.zeros((x_n_rows, y_n_rows), dtype=np.float32)
+            # Process chunk of categorical features
+            X_chunk = X_cat[:, start_feat:end_feat]
+            Y_chunk = Y_cat[:, start_feat:end_feat]
+            weight_chunk = weight_cat[start_feat:end_feat]
 
-    # Handle numerical features using broadcasting
+            # Use view-based broadcasting instead of creating expanded copies
+            X_reshaped = X_chunk[:, np.newaxis, :]
+            Y_reshaped = Y_chunk[np.newaxis, :, :]
+
+            # Vectorized comparison with immediate weighting to reduce memory
+            cat_diff = (X_reshaped != Y_reshaped).astype(np.float32)
+
+            # Apply weights and accumulate directly to output (in-place)
+            weighted_diff = cat_diff * weight_chunk[np.newaxis, np.newaxis, :]
+            out += np.sum(weighted_diff, axis=2)
+
+            # Cleanup intermediate arrays to free memory
+            del cat_diff, weighted_diff, X_reshaped, Y_reshaped
+
+    # Handle numerical features using memory-efficient broadcasting
     if X_num.shape[1] > 0:
-        # Reshape for broadcasting: X_num (x_n_rows, 1, n_num_features), Y_num (1, y_n_rows, n_num_features)
-        X_num_expanded = X_num[:, np.newaxis, :]  # Shape: (x_n_rows, 1, n_num_features)
-        Y_num_expanded = Y_num[np.newaxis, :, :]  # Shape: (1, y_n_rows, n_num_features)
+        # Process numerical features in chunks to reduce peak memory usage
+        n_num_features = X_num.shape[1]
+        # Prevent division by zero when y_n_rows is 0
+        if x_n_rows * y_n_rows == 0:
+            chunk_size = n_num_features  # Process all features at once for empty arrays
+        else:
+            chunk_size = min(
+                n_num_features, max(1, 100000000 // (x_n_rows * y_n_rows))
+            )  # Adaptive chunking
 
-        # Vectorized numerical distance computation
-        abs_delta = np.abs(X_num_expanded - Y_num_expanded)
+        for start_feat in range(0, n_num_features, chunk_size):
+            end_feat = min(start_feat + chunk_size, n_num_features)
 
-        # Normalize by ranges, handling division by zero
-        normalized_delta = np.divide(
-            abs_delta,
-            num_ranges[np.newaxis, np.newaxis, :],
-            out=np.zeros_like(abs_delta),
-            where=num_ranges[np.newaxis, np.newaxis, :] != 0,
-        )
+            # Process chunk of numerical features
+            X_chunk = X_num[:, start_feat:end_feat]
+            Y_chunk = Y_num[:, start_feat:end_feat]
+            weight_chunk = weight_num[start_feat:end_feat]
+            ranges_chunk = num_ranges[start_feat:end_feat]
 
-        # Apply weights and sum across features
-        weighted_num_diff = normalized_delta * weight_num[np.newaxis, np.newaxis, :]
-        num_distances = np.sum(weighted_num_diff, axis=2)
-    else:
-        num_distances = np.zeros((x_n_rows, y_n_rows), dtype=np.float32)
+            # Use view-based broadcasting
+            X_reshaped = X_chunk[:, np.newaxis, :]
+            Y_reshaped = Y_chunk[np.newaxis, :, :]
 
-    # Combine categorical and numerical distances
-    total_distances = cat_distances + num_distances
+            # Vectorized numerical distance computation with immediate normalization
+            abs_delta = np.abs(X_reshaped - Y_reshaped)
 
-    # Normalize by total weight
-    out = total_distances / weight_sum
+            # Normalize by ranges in-place where possible
+            ranges_broadcast = ranges_chunk[np.newaxis, np.newaxis, :]
+            mask = ranges_broadcast != 0
+            np.divide(abs_delta, ranges_broadcast, out=abs_delta, where=mask)
+
+            # Apply weights and accumulate directly to output (in-place)
+            weighted_diff = abs_delta * weight_chunk[np.newaxis, np.newaxis, :]
+            out += np.sum(weighted_diff, axis=2)
+
+            # Cleanup intermediate arrays
+            del abs_delta, weighted_diff, X_reshaped, Y_reshaped
+
+    # Normalize by total weight (in-place)
+    out /= weight_sum
 
     # For symmetric matrices, ensure diagonal is exactly 0 (unless all weights are zero)
     if is_symmetric and x_n_rows == y_n_rows and weight_sum > 0:
