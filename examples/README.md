@@ -6,22 +6,24 @@ This directory contains comprehensive examples demonstrating the capabilities of
 
 ### `bank_marketing_similarity.ipynb` - **Comprehensive Analysis**
 
-A complete tutorial using the UCI Bank Marketing dataset that demonstrates:
+A complete tutorial using the UCI Bank Marketing dataset (45,211 clients) that demonstrates:
 
-- **Data Loading & Exploration**: Understanding the dataset structure and characteristics
-- **Basic Gower Distance**: Computing distance matrices and understanding results
-- **Similarity Analysis**: Finding k-nearest neighbors and analyzing relationships
+- **Data Loading & Exploration**: Mixed categorical/numerical features (9 categorical, 7 numerical)
+- **Basic Gower Distance**: Computing distance matrices with automatic feature detection
+- **Customer Similarity Analysis**: Finding similar bank clients for targeted marketing
 - **Practical Applications**:
-  - Anomaly detection for quality control
-  - Golden standard matching
-  - Missing data robustness
+  - Customer anomaly detection and risk assessment
+  - Golden standard client profiling
+  - Missing data robustness (handles incomplete records)
 - **Advanced Features**:
-  - Custom feature weighting
-  - Performance benchmarking
-  - GPU acceleration (if available)
-- **Clustering Integration**: Using Gower distances with clustering algorithms
-- **Comparative Analysis**: Gower vs. Euclidean distance performance
-- **Real-world Applications**: Business use cases and implementation guidance
+  - Custom feature weighting (demographics, financial, contact-focused)
+  - Performance benchmarking (~1.6M calculations/second)
+  - Memory-efficient computation
+- **Clustering Integration**: Customer segmentation with precomputed distances
+- **Comparative Analysis**: Gower vs. Euclidean distance for mixed-type banking data
+- **Real-world Applications**: Marketing, risk assessment, customer segmentation
+
+**Key Results**: Superior k-NN accuracy, efficient processing of large datasets, robust handling of missing values, and easy integration with sklearn workflows.
 
 ## 🚀 Getting Started
 
@@ -44,15 +46,20 @@ pip install gower ucimlrepo pandas numpy matplotlib seaborn plotly scikit-learn 
 
 1. **Jupyter Notebook**:
    ```bash
-   jupyter notebook examples/gower_raisin_similarity.ipynb
+   jupyter notebook examples/bank_marketing_similarity.ipynb
    ```
 
 2. **JupyterLab**:
    ```bash
-   jupyter lab examples/gower_raisin_similarity.ipynb
+   jupyter lab examples/bank_marketing_similarity.ipynb
    ```
 
-3. **VS Code**: Open the `.ipynb` file directly in VS Code with the Python extension
+3. **Quick Validation** (test without running full notebook):
+   ```bash
+   python examples/validate_notebook.py
+   ```
+
+4. **VS Code**: Open the `.ipynb` file directly in VS Code with the Python extension
 
 
 ## 🔧 Customization
