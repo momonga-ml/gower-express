@@ -1,0 +1,39 @@
+name: PR Tests and Quality Checks
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+
+    - name: Run ruff linting
+      run: |
+        uv run ruff check .
+
+    - name: Run ruff format check
+      run: |
+        uv run ruff format --check .
+
+    - name: Run tests with coverage
+      run: |
+        uv run pytest tests/ --cov=gower_exp --cov-report=term-missing

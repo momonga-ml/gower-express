@@ -1,0 +1,43 @@
+repos:
+  # Standard pre-commit hooks for basic file cleanup
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: debug-statements
+
+  # Ruff for linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        name: ruff format
+        exclude: ^examples/
+
+  # Bandit for security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+
+  # Run tests with pytest - only run fast tests for pre-commit
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest (fast tests only)
+        entry: uv run pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        args: [tests/matrix_test.py, tests/test_gower_matrix.py, tests/test_gower_topn.py, --tb=short, -x]
