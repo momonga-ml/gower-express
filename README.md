@@ -2,11 +2,11 @@
 
 **The Fastest Gower Distance Implementation for Python**
 
-[![PyPI version](https://badge.fury.io/py/gower-exp.svg)](https://badge.fury.io/py/gower-exp)
-[![Downloads](https://pepy.tech/badge/gower-exp)](https://pepy.tech/project/gower-exp)
-[![Python Version](https://img.shields.io/pypi/pyversions/gower-exp.svg)](https://pypi.org/project/gower-exp/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/momonga-ml/gower-express/workflows/pr/badge.svg)](https://github.com/momonga-ml/gower-express/actions)
+[![PyPI version](https://badge.fury.io/py/gower_exp.svg)](https://badge.fury.io/py/gower_exp)
+[![Downloads](https://pepy.tech/badge/gower_exp)](https://pepy.tech/project/gower_exp)
+[![Python Version](https://img.shields.io/pypi/pyversions/gower_exp.svg)](https://pypi.org/project/gower_exp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/momonga-ml/gower-express/actions/workflows/pr.yml/badge.svg)](https://github.com/momonga-ml/gower-express/actions)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/momonga-ml/gower-express)
 
 🚀 **GPU-accelerated similarity matching for mixed data types**
