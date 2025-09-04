@@ -34,7 +34,6 @@ env.bak/
 venv.bak/
 
 # uv package manager
-uv.lock
 .uv/
 
 # Ruff
