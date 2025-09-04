@@ -2,6 +2,10 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["gower_exp*"]
+exclude = ["gower"]
+
 [project]
 name = "gower_exp"
 version = "0.1.4"
@@ -39,7 +43,7 @@ dev = [
     "bandit[toml]"
 ]
 gpu = [
-    "cupy-cuda11x>=10.0.0"
+    "cupy-cuda11x>=13.6.0; platform_system!='Darwin'",
 ]
 sklearn = [
     "scikit-learn>=0.24.0"
