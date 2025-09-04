@@ -1,12 +1,17 @@
 name: Publish to PyPI
 
 on:
-  push:
-    branches: [master]
+  release:
+    types: [published]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # Required for trusted publishing
+      contents: read
 
     steps:
     - uses: actions/checkout@v4
@@ -14,7 +19,7 @@ jobs:
         fetch-depth: 0  # Full history for proper versioning
 
     - name: Set up Python 3.12
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
@@ -26,20 +31,29 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install -e ".[dev]"
-        uv pip install twine
+        uv sync --all-extras --dev
 
     - name: Run tests
       run: |
-        uv run pytest tests/
+        uv run pytest tests/ --cov=gower_exp --cov-report=term-missing
+
+    - name: Run linting
+      run: |
+        uv run ruff check .
+        uv run ruff format --check .
 
     - name: Build package
       run: |
         uv build
 
-    - name: Publish to PyPI
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+    - name: Publish to PyPI (Trusted Publishing)
       run: |
-        uv run twine upload dist/*
+        uv publish --trusted-publishing automatic
+      if: github.event_name == 'release'
+
+    - name: Publish to PyPI (Token fallback)
+      env:
+        UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        uv publish --token $UV_PUBLISH_TOKEN
+      if: github.event_name == 'workflow_dispatch'
