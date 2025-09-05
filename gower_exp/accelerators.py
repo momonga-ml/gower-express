@@ -113,8 +113,12 @@ def gower_get_numba(
             # Check if both values are NaN
             both_nan = np.isnan(xi_val) and np.isnan(xj_val)
 
-            # If not both NaN and values are different, add to categorical distance
-            if not both_nan and xi_val != xj_val:
+            # If both NaN, distance is 0 (equal), so skip
+            if both_nan:
+                continue
+
+            # If one is NaN or values are different, add to categorical distance
+            if np.isnan(xi_val) or np.isnan(xj_val) or xi_val != xj_val:
                 sum_cat += feature_weight_cat[j]
 
         # Numerical distance calculation
@@ -195,7 +199,21 @@ def smallest_indices_numba(ary_flat, n):
     """
     Numba-optimized version of smallest_indices.
     """
-    # Handle NaN values by replacing with large number
+    length = len(ary_flat)
+    # Handle edge cases
+    if n >= length:
+        indices = np.argsort(ary_flat).astype(np.int32)
+        sorted_values = ary_flat[indices].astype(np.float64)
+        return indices, sorted_values
+    if n <= 0:
+        empty_indices = np.empty(0, dtype=np.int32)
+        empty_values = np.empty(0, dtype=np.float64)
+        return empty_indices, empty_values
+
+    # Create a copy to preserve original NaN positions
+    original_values = ary_flat.copy()
+
+    # Handle NaN values by replacing with large number for sorting
     for i in range(len(ary_flat)):
         if np.isnan(ary_flat[i]):
             ary_flat[i] = 999.0
@@ -212,7 +230,12 @@ def smallest_indices_numba(ary_flat, n):
         ary_flat[i], ary_flat[min_idx] = ary_flat[min_idx], ary_flat[i]
         indices[i], indices[min_idx] = indices[min_idx], indices[i]
 
-    return indices[:n], ary_flat[:n]
+    # Restore original values (including NaNs) for the result
+    result_values = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        result_values[i] = original_values[indices[i]]
+
+    return indices[:n], result_values
 
 
 # ============================================================================
@@ -253,8 +276,9 @@ def gower_get_numba_numerical_only(
                 xj_val = xj_num[i, j]
 
                 # Handle NaN values efficiently
-                if np.isnan(xi_val) and np.isnan(xj_val):
-                    # Both NaN, distance is 0, continue
+                both_nan = np.isnan(xi_val) and np.isnan(xj_val)
+                if both_nan:
+                    # Both NaN, distance is 0, continue (no contribution to sum)
                     continue
                 elif np.isnan(xi_val) or np.isnan(xj_val):
                     # One is NaN, mark row as having NaN and break
@@ -305,8 +329,12 @@ def gower_get_numba_categorical_only(
             # Handle NaN values: if both are NaN, they are considered equal
             both_nan = np.isnan(xi_val) and np.isnan(xj_val)
 
-            # If not both NaN and values are different, add to categorical distance
-            if not both_nan and xi_val != xj_val:
+            # If both NaN, distance is 0 (equal), so skip
+            if both_nan:
+                continue
+
+            # If one is NaN or values are different, add to categorical distance
+            if np.isnan(xi_val) or np.isnan(xj_val) or xi_val != xj_val:
                 sum_cat += feature_weight_cat[j]
 
         result[i] = sum_cat / weight_sum
@@ -351,7 +379,13 @@ def gower_get_numba_mixed_optimized(
 
             # Optimized NaN handling
             both_nan = np.isnan(xi_val) and np.isnan(xj_val)
-            if not both_nan and xi_val != xj_val:
+
+            # If both NaN, distance is 0 (equal), so skip
+            if both_nan:
+                continue
+
+            # If one is NaN or values are different, add to categorical distance
+            if np.isnan(xi_val) or np.isnan(xj_val) or xi_val != xj_val:
                 sum_cat += feature_weight_cat[j]
 
         # Process numerical features with early termination
@@ -557,7 +591,13 @@ def gower_matrix_numba_parallel(
                 yj_val = Y_cat[j, k]
 
                 both_nan = np.isnan(xi_val) and np.isnan(yj_val)
-                if not both_nan and xi_val != yj_val:
+
+                # If both NaN, distance is 0 (equal), so skip
+                if both_nan:
+                    continue
+
+                # If one is NaN or values are different, add to categorical distance
+                if np.isnan(xi_val) or np.isnan(yj_val) or xi_val != yj_val:
                     sum_cat += feature_weight_cat[k]
 
             # Numerical features

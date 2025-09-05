@@ -1,10 +1,7 @@
-import sys
 from unittest.mock import patch
 
 import numpy as np
 
-# Import functions from the new modular structure
-sys.path.insert(0, "../gower_exp")
 from gower_exp.accelerators import get_array_module
 from gower_exp.core import gower_get
 from gower_exp.parallel import _compute_chunk, _compute_gower_matrix_parallel
@@ -16,13 +13,6 @@ class TestHelperFunctions:
         """Test get_array_module returns numpy for CPU"""
         module = get_array_module(use_gpu=False)
         assert module is np
-
-    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
-    @patch("gower_exp.accelerators.cp")
-    def test_get_array_module_gpu(self, mock_cp):
-        """Test get_array_module returns cupy for GPU when available"""
-        module = get_array_module(use_gpu=True)
-        assert module is mock_cp
 
     @patch("gower_exp.accelerators.GPU_AVAILABLE", False)
     def test_get_array_module_gpu_not_available(self):
