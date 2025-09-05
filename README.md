@@ -168,6 +168,7 @@ labels = clustering.fit_predict(mixed_data)
 - **🎓 [Tutorials](examples/)** - Step-by-step examples with real datasets
 - **⚡ [Performance Guide](docs/benchmarks.md)** - Optimization tips and benchmarks
 - **🔧 [Developer Guide](docs/development.md)** - Contributing and development setup
+- **📝 [Blog: Development Journey](https://charles-frenzel.medium.com/i-was-wrong-start-simple-then-move-to-more-complex-5e2f40765481)** - Insights into the development philosophy
 
 ---
 
