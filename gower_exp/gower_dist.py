@@ -358,7 +358,7 @@ def gower_matrix(
         )
 
     if verbose:
-        print(f"Gower matrix computed in {time.time() - start_time:.2f}s")  # type:ignore
+        print(f"Gower matrix computed in {time.time() - start_time:.2f} seconds")  # type:ignore
         if use_gpu and GPU_AVAILABLE:
             method = "GPU-Vectorized"
         elif x_n_rows * y_n_rows < 1000000:

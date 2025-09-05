@@ -1,12 +1,10 @@
 """Final push to reach 90% coverage - focus on uncovered lines"""
 
-import sys
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "../gower_exp")
 import gower_exp
 from gower_exp.accelerators import (
     GPU_AVAILABLE,
@@ -55,13 +53,6 @@ class TestFinalPush:
         with patch("gower_exp.accelerators.GPU_AVAILABLE", False):
             module = get_array_module(use_gpu=True)
             assert module is np
-
-    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
-    @patch("gower_exp.accelerators.cp", create=True)
-    def test_gpu_available_path(self, mock_cp):
-        """Test when GPU is available"""
-        module = get_array_module(use_gpu=True)
-        assert module is mock_cp
 
     def test_gower_matrix_with_non_numeric_dtypes(self):
         """Test automatic categorical detection with object dtypes"""

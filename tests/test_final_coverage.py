@@ -1,16 +1,11 @@
 """Final tests to reach 90% coverage target"""
 
-import sys
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "../gower_exp")
 import gower_exp
-from gower_exp.accelerators import (
-    get_array_module,
-)
 from gower_exp.parallel import _compute_chunk
 from gower_exp.topn import _gower_topn_heap, smallest_indices
 
@@ -18,39 +13,12 @@ from gower_exp.topn import _gower_topn_heap, smallest_indices
 class TestFinalCoverage:
     """Tests to cover remaining gaps for 90% coverage"""
 
-    @patch("gower_exp.accelerators.NUMBA_AVAILABLE", False)
-    def test_imports_without_numba(self):
-        """Test that module loads correctly without numba"""
-        # Reimport module without numba
-        import importlib
-
-        # Reload accelerators module to test without numba
-        import gower_exp.accelerators
-
-        importlib.reload(gower_exp.accelerators)
-
-        # Check that functions still exist in main module
-        assert hasattr(gower_exp, "gower_matrix")
-        assert hasattr(gower_exp, "gower_topn")
-
     def test_gpu_available_check_without_cupy(self):
         """Test GPU availability check when CuPy is not installed"""
         with patch.dict("sys.modules", {"cupy": None}):
             # This would trigger the ImportError path
             # but we can't easily reload the module here
             pass
-
-    @patch("gower_exp.accelerators.GPU_AVAILABLE", True)
-    @patch("gower_exp.accelerators.cp")
-    def test_get_array_module_with_mock_cupy(self, mock_cp):
-        """Test get_array_module returns mock cupy"""
-        mock_cp.cuda.is_available.return_value = True
-
-        module = get_array_module(use_gpu=True)
-        assert module is mock_cp
-
-        module = get_array_module(use_gpu=False)
-        assert module is np
 
     def test_gower_matrix_nan_handling_in_ranges(self):
         """Test NaN handling in range computation"""

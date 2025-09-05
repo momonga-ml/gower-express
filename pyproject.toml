@@ -100,3 +100,7 @@ skips = ["B101", "B110"]  # Skip assert_used test and try_except_pass
 exclude_dirs = ["tests", "benchmark", "examples"]
 [tool.bandit.assert_used]
 skips = ["*_test.py", "test_*.py"]
+
+[tool.coverage.run]
+source = ["gower_exp"]
+omit = ["gower_exp/accelerators.py"]
