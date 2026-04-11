@@ -260,10 +260,7 @@ class TestNumbaFunctions:
             xi_cat_nan, xj_cat_nan, self.feature_weight_cat
         )
 
-        # Note: Current numba implementation has a bug with NaN categorical handling
-        # It returns ~0.33 instead of 0.0 when NaN pairs should be considered equal
-        # TODO: This should ideally return 0.0 to match main implementation
-        assert np.isclose(result[0], 0.33333334, atol=1e-6)  # Current buggy behavior
+        assert np.isclose(result[0], 0.0, atol=1e-6)
 
     @pytest.mark.skipif(not NUMBA_AVAILABLE, reason="Numba not available")
     def test_gower_get_numba_mixed_optimized(self):

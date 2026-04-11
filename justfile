@@ -29,12 +29,16 @@ lint-fix:
 format-check:
     uv run ruff format --check .
 
+# Run security checks
+security:
+    uv run bandit -r gower_exp/ -c pyproject.toml
+
 # Format code
 format:
     uv run ruff format .
 
-# Run all quality checks (lint + format + tests)
-check: lint format-check test
+# Run all quality checks (lint + format + security + tests)
+check: lint format-check security test
 
 # Build the package
 build:
@@ -70,11 +74,11 @@ publish:
 
 # Run benchmarks
 benchmark:
-    uv run python benchmark/clean_benchmark.py
+    uv run python benchmarks/clean_benchmark.py
 
 # Run comprehensive benchmarks
 benchmark-full:
-    uv run python benchmark/ultimate_benchmark.py
+    uv run python benchmarks/ultimate_benchmark.py
 
 # Start Jupyter for examples
 jupyter:
@@ -89,7 +93,7 @@ version new_version:
     sed -i '' 's/version = "[^"]*"/version = "{{new_version}}"/' pyproject.toml
     @echo "Updated version to {{new_version}}"
 
-# Create a new release (builds, tags, and pushes)
+# Prepare and push a release tag. Publishing starts after a GitHub Release is published from that tag.
 release version:
     #!/usr/bin/env bash
     set -e
@@ -113,4 +117,5 @@ release version:
     git push origin HEAD
     git push origin v{{version}}
 
-    echo "Release {{version}} created! Check GitHub Actions for publishing status."
+    echo "Tag v{{version}} pushed."
+    echo "Next step: publish a GitHub Release from tag v{{version}} to trigger .github/workflows/publish.yml."

@@ -16,6 +16,20 @@ import numpy as np
 from joblib import Parallel, delayed
 
 
+def _run_parallel_chunks(row_chunks, n_jobs, *chunk_args):
+    """Run chunk computation in parallel, falling back to local execution when needed."""
+    try:
+        return Parallel(n_jobs=n_jobs, backend="loky")(
+            delayed(_compute_chunk)(start_idx, end_idx, *chunk_args)
+            for start_idx, end_idx in row_chunks
+        )
+    except (OSError, PermissionError):
+        return [
+            _compute_chunk(start_idx, end_idx, *chunk_args)
+            for start_idx, end_idx in row_chunks
+        ]
+
+
 def _compute_gower_matrix_parallel(
     X_cat,
     X_num,
@@ -56,26 +70,22 @@ def _compute_gower_matrix_parallel(
         end_idx = min(i + chunk_size, x_n_rows)
         row_chunks.append((i, end_idx))
 
-    # Process chunks in parallel using loky backend to avoid Numba conflicts
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(_compute_chunk)(
-            start_idx,
-            end_idx,
-            X_cat,
-            X_num,
-            Y_cat,
-            Y_num,
-            weight_cat,
-            weight_num,
-            weight_sum,
-            cat_features,
-            num_ranges,
-            num_max,
-            x_n_rows,
-            y_n_rows,
-            is_symmetric,
-        )
-        for start_idx, end_idx in row_chunks
+    results = _run_parallel_chunks(
+        row_chunks,
+        n_jobs,
+        X_cat,
+        X_num,
+        Y_cat,
+        Y_num,
+        weight_cat,
+        weight_num,
+        weight_sum,
+        cat_features,
+        num_ranges,
+        num_max,
+        x_n_rows,
+        y_n_rows,
+        is_symmetric,
     )
 
     # Pre-allocate output matrix with optimal memory layout
