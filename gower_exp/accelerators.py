@@ -154,7 +154,6 @@ def gower_get_numba(
     "void(float64[:,:], float64[:], float64[:])",
     nopython=True,
     cache=True,
-    fastmath=True,
     boundscheck=False,
 )
 def compute_ranges_numba(Z_num, num_ranges, num_max):
@@ -163,26 +162,25 @@ def compute_ranges_numba(Z_num, num_ranges, num_max):
     """
     num_cols = Z_num.shape[1]
     for col in range(num_cols):
-        # Initialize min/max with first non-NaN value
         max_val = -np.inf
         min_val = np.inf
+        found_valid = False
 
-        # Find actual min/max values
         for row in range(Z_num.shape[0]):
             val = Z_num[row, col]
             if not np.isnan(val):
+                found_valid = True
                 if val > max_val:
                     max_val = val
                 if val < min_val:
                     min_val = val
 
-        # Handle case where all values are NaN
-        if max_val == -np.inf or min_val == np.inf:
+        if not found_valid:
             max_val = 0.0
             min_val = 0.0
 
         num_max[col] = max_val
-        if max_val != 0:
+        if max_val != 0.0:
             num_ranges[col] = abs(1 - min_val / max_val)
         else:
             num_ranges[col] = 0.0
@@ -424,7 +422,6 @@ def gower_get_numba_mixed_optimized(
     nopython=True,
     parallel=True,
     cache=True,
-    fastmath=True,
     boundscheck=False,
 )
 def compute_ranges_numba_parallel(Z_num, num_ranges, num_max):
@@ -437,17 +434,18 @@ def compute_ranges_numba_parallel(Z_num, num_ranges, num_max):
     for col in prange(num_cols):
         max_val = -np.inf
         min_val = np.inf
+        found_valid = False
 
         # Sequential scan of rows within each column for better memory locality
         for row in range(Z_num.shape[0]):
             val = Z_num[row, col]
             if not np.isnan(val):
+                found_valid = True
                 # Use min/max without branching for better performance
                 max_val = max(max_val, val)
                 min_val = min(min_val, val)
 
-        # Handle all-NaN case
-        if max_val == -np.inf:
+        if not found_valid:
             max_val = 0.0
             min_val = 0.0
 

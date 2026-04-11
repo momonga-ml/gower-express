@@ -24,7 +24,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install -e ".[dev]"
+        uv sync --all-extras --dev
 
     - name: Run ruff linting
       run: |
@@ -33,6 +33,10 @@ jobs:
     - name: Run ruff format check
       run: |
         uv run ruff format --check .
+
+    - name: Run bandit
+      run: |
+        uv run bandit -r gower_exp/ -c pyproject.toml
 
     - name: Run tests with coverage
       run: |
